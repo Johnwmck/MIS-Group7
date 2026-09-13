@@ -5,7 +5,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2
 });
 
-function Book(id, isbn, title, author, genre, price, inventory, status) {
+function Book(id, isbn, title, author, genre, price, inventory, status, image) {
     this.id = id;
     this.isbn = isbn;
     this.title = title;
@@ -14,6 +14,7 @@ function Book(id, isbn, title, author, genre, price, inventory, status) {
     this.price = currencyFormatter.format(price);
     this.inventory = inventory;
     this.status = status;
+    this.image = image;
 }
 
 const book1 = new Book(
@@ -24,7 +25,8 @@ const book1 = new Book(
     "Fiction",
     14.99,
     12,
-    "Active"
+    "Active",
+    "https://www.publicdomainpictures.net/pictures/450000/velka/to-kill-a-mocking-bird.jpg"
 );
 
 const book2 = new Book(
@@ -35,7 +37,8 @@ const book2 = new Book(
     "Fiction",
     12.99,
     8,
-    "Active"
+    "Active",
+    "https://upload.wikimedia.org/wikipedia/commons/7/7a/The_Great_Gatsby_Cover_1925_Retouched.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"
 );
 
 const book3 = new Book(
@@ -46,7 +49,8 @@ const book3 = new Book(
     "Dystopian",
     13.99,
     15,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLizTdo9rzGAFXg5k38NcZuRCAQOhZwQM0uumd1PWf8Q&s=10"
 );
 
 const book4 = new Book(
@@ -57,7 +61,8 @@ const book4 = new Book(
     "Romance",
     11.99,
     6,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqEvzk6pwMNEwGhN_25NUNCxDEtUO7V-D3cNReQql-5g&s=10"
 );
 
 const book5 = new Book(
@@ -68,7 +73,8 @@ const book5 = new Book(
     "Fantasy",
     16.99,
     20,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRW3XBTLpA1w-lUnSutCjB7uew8ya-IZPyMu0i1vaOZQA&s=10"
 );
 
 const book6 = new Book(
@@ -79,7 +85,8 @@ const book6 = new Book(
     "Horror",
     17.99,
     4,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS_eDx1iq7N2pKSvgAM-uxmMSAQFNOdCW0Nb1F68qPHkw&s=10"
 );
 
 const book7 = new Book(
@@ -90,7 +97,8 @@ const book7 = new Book(
     "History",
     19.99,
     9,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTyymOkEE0K_RDiM-qStT10_qzHXM__di2y4JRcuktPBQ&s=10"
 );
 
 const book8 = new Book(
@@ -101,7 +109,8 @@ const book8 = new Book(
     "Horror",
     21.99,
     0,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQOXs0ayvY49350KMpPXOFymDq580_W_18Enr41UMTlKw&s=10"
 );
 
 const book9 = new Book(
@@ -112,7 +121,8 @@ const book9 = new Book(
     "Science Fiction",
     15.99,
     11,
-    "Active"
+    "Active",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7yDUFL36bi4f_ibWRtLTf6gyQzs7-IpltzRANajT6ew&s=10"
 );
 
 const book10 = new Book(
@@ -123,7 +133,8 @@ const book10 = new Book(
     "History",
     18.99,
     7,
-    "Inactive"
+    "Inactive",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrVJQTwiF5IaW_y4EmdOaCpBgWAvWy5U93LHtpMrBX_A&s=10"
 );
 
 const initialBooks = [
