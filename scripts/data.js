@@ -126,7 +126,7 @@ const book10 = new Book(
     "Inactive"
 );
 
-const seedBooks = [
+const BooksStorage = [
     book1,
     book2,
     book3,
@@ -138,3 +138,17 @@ const seedBooks = [
     book9,
     book10
 ];
+
+function loadBooksFromStorage() {
+
+}
+
+function savedBooks(books) {
+
+}
+
+function initializeBooks() {
+
+}
+
+
