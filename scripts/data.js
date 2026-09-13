@@ -126,7 +126,7 @@ const book10 = new Book(
     "Inactive"
 );
 
-const BooksStorage = [
+const initialBooks = [
     book1,
     book2,
     book3,
@@ -140,15 +140,17 @@ const BooksStorage = [
 ];
 
 function loadBooksFromStorage() {
-
+    let books = JSON.parse(localStorage.getItem('savedBooks'));
+    if (!books) {
+        books = initialBooks;
+        saveBooksToStorage(books);
+    }
+    return books;
 }
 
-function savedBooks(books) {
-
+function saveBooksToStorage(books) {
+    localStorage.setItem('savedBooks', JSON.stringify(books));
 }
 
-function initializeBooks() {
-
-}
 
 
