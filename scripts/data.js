@@ -11,7 +11,7 @@ function Book(id, isbn, title, author, genre, price, inventory, status) {
     this.title = title;
     this.author = author;
     this.genre = genre;
-    this.price = price;
+    this.price = currencyFormatter.format(price);
     this.inventory = inventory;
     this.status = status;
 }
