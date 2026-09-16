@@ -3,12 +3,23 @@
 <head>
     <title>Team 7 Books</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #bookContainer .card-img-top {
+            height: 140px;
+            object-fit: contain;
+        }
+
+        #bookContainer .card.out-of-stock .card-img-top {
+            filter: grayscale(100%);
+            opacity: 0.6;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Bookstore</h1>
+    <h1 class="text-center">Bookstore</h1>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.html">Team 7 Books</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -16,7 +27,7 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
                         <a class="nav-link active" aria-current="page" href="index.html">Home</a>
                     </li>
@@ -26,15 +37,35 @@
                     <li class="nav-item">
                         <a class="nav-link" href="admin.html">Admin Portal</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="checkout.html">Checkout</a>
+                    </li>
                 </ul>
             </div>
         </div>
     </nav>
 
     <div class="container">
-    <div class="row row-cols-1 row-cols-md-3 g-4" id="bookContainer">
+        <div class="row">
+            <div class="col-lg-9">
+                <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3" id="bookContainer">
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card sticky-top" style="top: 1rem;">
+                    <div class="card-header">
+                        <h5 class="mb-0">Cart</h5>
+                    </div>
+                    <div class="card-body">
+                        <p id="cartEmptyMessage" class="text-muted mb-0">Your cart is empty.</p>
+                        <div id="cartItems"></div>
+                        <p id="cartTotal" class="fw-bold mt-2 d-none"></p>
+                        <button type="button" class="btn btn-primary w-100 d-none" id="checkoutButton">Checkout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
     <div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -59,7 +90,7 @@
 </div>
 
 
-    <button id="resetCatalogButton">Reset Catalog</button>
+    <button id="resetCatalogButton" class=>Reset Catalog</button> <!-- delete or add "d-none" before >Reset Catalog if you want reset or add button -->
 
     <script src="scripts/data.js"></script>
     <script src="scripts/customer.js"></script>

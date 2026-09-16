@@ -137,6 +137,126 @@ const book10 = new Book(
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrVJQTwiF5IaW_y4EmdOaCpBgWAvWy5U93LHtpMrBX_A&s=10"
 );
 
+const book11 = new Book(
+    11,
+    "978-0-06-085052-4",
+    "Brave New World",
+    "Aldous Huxley",
+    "Dystopian",
+    13.99,
+    10,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780060850524-L.jpg"
+);
+
+const book12 = new Book(
+    12,
+    "978-1-4516-7331-9",
+    "Fahrenheit 451",
+    "Ray Bradbury",
+    "Dystopian",
+    12.99,
+    5,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9781451673319-L.jpg"
+);
+
+const book13 = new Book(
+    13,
+    "978-0-316-76948-0",
+    "The Catcher in the Rye",
+    "J.D. Salinger",
+    "Fiction",
+    14.99,
+    0,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780316769488-L.jpg"
+);
+
+const book14 = new Book(
+    14,
+    "978-0-14-243724-7",
+    "Moby-Dick",
+    "Herman Melville",
+    "Classic",
+    11.99,
+    6,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780142437247-L.jpg"
+);
+
+const book15 = new Book(
+    15,
+    "978-1-4000-7998-8",
+    "War and Peace",
+    "Leo Tolstoy",
+    "Classic",
+    18.99,
+    3,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9781400079988-L.jpg"
+);
+
+const book16 = new Book(
+    16,
+    "978-0-06-231500-7",
+    "The Alchemist",
+    "Paulo Coelho",
+    "Fiction",
+    16.99,
+    14,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780062315007-L.jpg"
+);
+
+const book17 = new Book(
+    17,
+    "978-0-441-17271-9",
+    "Dune",
+    "Frank Herbert",
+    "Science Fiction",
+    9.99,
+    8,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg"
+);
+
+const book18 = new Book(
+    18,
+    "978-0-439-70818-0",
+    "Harry Potter and the Sorcerer's Stone",
+    "J.K. Rowling",
+    "Fantasy",
+    8.99,
+    25,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780439708180-L.jpg"
+);
+
+const book19 = new Book(
+    19,
+    "978-0-307-47427-8",
+    "The Da Vinci Code",
+    "Dan Brown",
+    "Thriller",
+    10.99,
+    0,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780307474278-L.jpg"
+);
+
+const book20 = new Book(
+    20,
+    "978-0-399-59050-4",
+    "Educated",
+    "Tara Westover",
+    "Memoir",
+    15.99,
+    9,
+    "Active",
+    "https://covers.openlibrary.org/b/isbn/9780399590504-L.jpg"
+);
+
 const initialBooks = [
     book1,
     book2,
@@ -147,7 +267,17 @@ const initialBooks = [
     book7,
     book8,
     book9,
-    book10
+    book10,
+    book11,
+    book12,
+    book13,
+    book14,
+    book15,
+    book16,
+    book17,
+    book18,
+    book19,
+    book20
 ];
 
 function loadBooksFromStorage() {
