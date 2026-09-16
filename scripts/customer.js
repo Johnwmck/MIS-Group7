@@ -4,7 +4,9 @@ const bookContainer = document.getElementById('bookContainer');
 
 const bookList = loadBooksFromStorage();
 
+let selectedBook = null;
 
+let cart = [];
 
 function createBookCard(book) {
     const col = document.createElement('div');
@@ -21,6 +23,7 @@ function createBookCard(book) {
     `;
 
     col.querySelector('.card').addEventListener('click', function () {
+        selectedBook = book;
         document.getElementById('modalBookTitle').textContent = book.title;
         document.getElementById('modalBookImage').src = book.image;
         document.getElementById('modalBookImage').alt = book.title;
@@ -28,6 +31,8 @@ function createBookCard(book) {
         document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
         document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
         document.getElementById('modalBookInventory').textContent = "In stock: " + book.inventory;
+
+
     });
 
     bookContainer.appendChild(col);
@@ -39,6 +44,42 @@ for (let i = 0; i < bookList.length; i++) {
         createBookCard(bookList[i]);
     }
 }
+
+function purchaseCart(cart) {
+    for (let i = 0; i < cart.length; i++) {
+        const selection = cart[i];
+        if (selection.inventory > 0) {
+            selection.inventory -= 1;
+            console.log("Purchased: " + selection.title + ". Remaining inventory: " + selection.inventory);
+            cart.splice(cart.indexOf(selection), 1);
+            
+        } 
+        else {
+            console.log("Sorry, " + selection.title + " is out of stock.");
+        }
+    }
+}
+
+const addToCartButton = document.getElementById("addToCartButton");
+
+addToCartButton.addEventListener("click", function () {
+    if (selectedBook) {
+        cart.push(selectedBook);
+        console.log("Book added to cart: " + selectedBook.title + " with quantity: " + selectedBook.inventory);
+    }
+});
+
+const buyNowButton = document.getElementById("buyNowButton");
+buyNowButton.addEventListener("click", function () {
+    if (selectedBook.inventory > 0) {
+        console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory);
+        selectedBook.inventory -= 1;
+    }
+    else {
+            console.log("Sorry, " + selectedBook.title + " is out of stock.");
+    }
+
+});
 
 const resetCatalogButton = document.getElementById("resetCatalogButton");
 
