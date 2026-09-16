@@ -48,6 +48,14 @@
     <div class="container">
         <div class="row">
             <div class="col-lg-9">
+                <div class="input-group mb-3">
+                    <select class="form-select" id="searchFieldSelect" style="max-width: 140px;">
+                        <option value="title" selected>Title</option>
+                        <option value="author">Author</option>
+                        <option value="genre">Genre</option>
+                    </select>
+                    <input type="search" class="form-control" id="searchInput" placeholder="Search...">
+                </div>
                 <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3" id="bookContainer">
                 </div>
             </div>

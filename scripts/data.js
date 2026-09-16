@@ -5,7 +5,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2
 });
 
-function Book(id, isbn, title, author, genre, price, inventory, status, image) {
+function Book(id, isbn, title, author, genre, price, inventory, status, image, manualStockOverride = null) {
     this.id = id;
     this.isbn = isbn;
     this.title = title;
@@ -15,6 +15,15 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image) {
     this.inventory = inventory;
     this.status = status;
     this.image = image;
+    // null = automatic (based on inventory), true = forced out of stock, false = forced in stock
+    this.manualStockOverride = manualStockOverride;
+}
+
+function isBookOutOfStock(book) {
+    if (book.manualStockOverride !== null && book.manualStockOverride !== undefined) {
+        return book.manualStockOverride;
+    }
+    return book.inventory <= 0;
 }
 
 const book1 = new Book(

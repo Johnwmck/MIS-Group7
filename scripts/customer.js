@@ -11,8 +11,11 @@ let cart = [];
 function createBookCard(book) {
     const col = document.createElement('div');
     col.className = "col";
+    col.dataset.title = book.title.toLowerCase();
+    col.dataset.author = book.author.toLowerCase();
+    col.dataset.genre = book.genre.toLowerCase();
 
-    const outOfStock = book.inventory === 0;
+    const outOfStock = isBookOutOfStock(book);
 
     col.innerHTML = `
         <div class="card h-100${outOfStock ? ' out-of-stock' : ''}" role="button" data-bs-toggle="modal" data-bs-target="#bookModal">
@@ -36,12 +39,13 @@ function createBookCard(book) {
         document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
         document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
 
+        const bookOutOfStock = isBookOutOfStock(book);
         const inventoryText = document.getElementById('modalBookInventory');
-        inventoryText.textContent = book.inventory > 0 ? "In stock: " + book.inventory : "Out of stock";
-        inventoryText.classList.toggle('text-danger', book.inventory === 0);
+        inventoryText.textContent = bookOutOfStock ? "Out of stock" : "In stock: " + book.inventory;
+        inventoryText.classList.toggle('text-danger', bookOutOfStock);
 
-        document.getElementById('addToCartButton').disabled = book.inventory === 0;
-        document.getElementById('buyNowButton').disabled = book.inventory === 0;
+        document.getElementById('addToCartButton').disabled = bookOutOfStock;
+        document.getElementById('buyNowButton').disabled = bookOutOfStock;
     });
 
     bookContainer.appendChild(col);
@@ -53,6 +57,20 @@ for (let i = 0; i < bookList.length; i++) {
         createBookCard(bookList[i]);
     }
 }
+
+const searchFieldSelect = document.getElementById('searchFieldSelect');
+const searchInput = document.getElementById('searchInput');
+
+function applySearchFilter() {
+    const field = searchFieldSelect.value;
+    const query = searchInput.value.trim().toLowerCase();
+    Array.from(bookContainer.children).forEach(function (col) {
+        col.classList.toggle('d-none', !col.dataset[field].includes(query));
+    });
+}
+
+searchInput.addEventListener('input', applySearchFilter);
+searchFieldSelect.addEventListener('change', applySearchFilter);
 
 function purchaseCart(cart) {
     for (let i = cart.length - 1; i >= 0; i--) {
