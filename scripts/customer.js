@@ -4,6 +4,8 @@ const bookContainer = document.getElementById('bookContainer');
 
 const bookList = loadBooksFromStorage();
 
+
+
 function createBookCard(book) {
     const col = document.createElement('div');
     col.className = "col";
@@ -24,7 +26,7 @@ function createBookCard(book) {
         document.getElementById('modalBookImage').alt = book.title;
         document.getElementById('modalBookAuthor').textContent = "Author: " + book.author;
         document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
-        document.getElementById('modalBookPrice').textContent = "Price: " + book.price;
+        document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
         document.getElementById('modalBookInventory').textContent = "In stock: " + book.inventory;
     });
 

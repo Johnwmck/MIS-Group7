@@ -1,4 +1,4 @@
-// Shared bookstore data ONLY. Functions go elsewhere
+// Shared bookstore data and shared data-access utilities.
 const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -11,7 +11,7 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image) {
     this.title = title;
     this.author = author;
     this.genre = genre;
-    this.price = currencyFormatter.format(price);
+    this.price = price;
     this.inventory = inventory;
     this.status = status;
     this.image = image;
