@@ -32,29 +32,36 @@ function createBookCard(book) {
 
     col.querySelector('.card').addEventListener('click', function () {
         selectedBook = book;
-        document.getElementById('modalBookTitle').textContent = book.title;
-        document.getElementById('modalBookImage').src = book.image;
-        document.getElementById('modalBookImage').alt = book.title;
-        document.getElementById('modalBookAuthor').textContent = "Author: " + book.author;
-        document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
-        document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
-
-        const bookOutOfStock = isBookOutOfStock(book);
-        const inventoryText = document.getElementById('modalBookInventory');
-        inventoryText.textContent = bookOutOfStock ? "Out of stock" : "In stock: " + book.inventory;
-        inventoryText.classList.toggle('text-danger', bookOutOfStock);
-
-        document.getElementById('addToCartButton').disabled = bookOutOfStock;
-        document.getElementById('buyNowButton').disabled = bookOutOfStock;
+        updateBookModal(book)
     });
 
     bookContainer.appendChild(col);
 }
 
+function updateBookModal(book) {
+    document.getElementById('modalBookTitle').textContent = book.title;
+    document.getElementById('modalBookImage').src = book.image;
+    document.getElementById('modalBookImage').alt = book.title;
+    document.getElementById('modalBookAuthor').textContent = "Author: " + book.author;
+    document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
+    document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
 
-for (let i = 0; i < bookList.length; i++) {
-    if (bookList[i].status === "Active") {
-        createBookCard(bookList[i]);
+    const bookOutOfStock = isBookOutOfStock(book);
+    const inventoryText = document.getElementById('modalBookInventory');
+    inventoryText.textContent = bookOutOfStock ? "Out of stock" : "In stock: " + book.inventory;
+    inventoryText.classList.toggle('text-danger', bookOutOfStock);
+
+    document.getElementById('addToCartButton').disabled = bookOutOfStock;
+    document.getElementById('buyNowButton').disabled = bookOutOfStock;
+}
+
+
+function renderCatalog() {
+    bookContainer.innerHTML = "";
+    for (let i = 0; i < bookList.length; i++) {
+        if (bookList[i].status === "Active") {
+            createBookCard(bookList[i]);
+        }
     }
 }
 
@@ -72,6 +79,8 @@ function applySearchFilter() {
 searchInput.addEventListener('input', applySearchFilter);
 searchFieldSelect.addEventListener('change', applySearchFilter);
 
+
+
 function purchaseCart(cart) {
     for (let i = cart.length - 1; i >= 0; i--) {
         const selection = cart[i];
@@ -84,12 +93,22 @@ function purchaseCart(cart) {
             console.log("Sorry, " + selection.title + " is out of stock.");
         }
     }
+    renderCart();
+    renderCatalog();
+    saveBooksToStorage(bookList)
+    if (selectedBook != null) {
+        updateBookModal(selectedBook)
+    }
 }
 
 const cartItemsContainer = document.getElementById("cartItems");
 const cartEmptyMessage = document.getElementById("cartEmptyMessage");
 const cartTotal = document.getElementById("cartTotal");
 const checkoutButton = document.getElementById("checkoutButton");
+
+checkoutButton.addEventListener("click", function () {
+    purchaseCart(cart)
+});
 
 function renderCart() {
     cartItemsContainer.innerHTML = "";
@@ -147,24 +166,59 @@ function renderCart() {
 const addToCartButton = document.getElementById("addToCartButton");
 
 addToCartButton.addEventListener("click", function () {
-    if (selectedBook) {
+    const cartChecker = cart.filter(function (book) {
+        return book.id === selectedBook.id
+    });
+
+    const quantityInCart = cartChecker.length;
+
+
+    if (quantityInCart < selectedBook.inventory) {
         cart.push(selectedBook);
-        console.log("Book added to cart: " + selectedBook.title + " with quantity: " + selectedBook.inventory);
+        console.log("Book added to cart: " + selectedBook.title + " with quantity: " + (selectedBook.inventory - quantityInCart));
         renderCart();
+    }
+    else {
+        console.log(selectedBook.title + " not added to cart because cart quantity would go over " + selectedBook.inventory + " . Cart has " + quantityInCart + ".")
     }
 });
 
 const buyNowButton = document.getElementById("buyNowButton");
 buyNowButton.addEventListener("click", function () {
-    if (selectedBook.inventory > 0) {
+    const cartChecker = cart.filter(function (book) {
+        return book.id === selectedBook.id
+    });
+
+    const quantityInCart = cartChecker.length;
+
+    if (selectedBook.inventory > 0 && quantityInCart >= selectedBook.inventory) {
+        const index = cart.findIndex(function (b) { return b.id === selectedBook.id; });
+        if (index !== -1) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+        console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory + ". One copy removed from cart to compensate!");
+        selectedBook.inventory -= 1;
+        saveBooksToStorage(bookList)
+        renderCatalog()
+        updateBookModal(selectedBook)
+    }
+    else if (selectedBook.inventory > 0) {
         console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory);
         selectedBook.inventory -= 1;
+        renderCart();
+        saveBooksToStorage(bookList)
+        renderCatalog()
+        updateBookModal(selectedBook)
     }
+
     else {
-            console.log("Sorry, " + selectedBook.title + " is out of stock.");
+        console.log("Sorry, " + selectedBook.title + " is out of stock.");
     }
 
 });
+
+renderCatalog();
 
 const resetCatalogButton = document.getElementById("resetCatalogButton");
 
