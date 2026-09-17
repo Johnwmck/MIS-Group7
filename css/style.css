@@ -1,23 +1,28 @@
 /* Team 7 Books — brand identity
-   Clean modern retail: T-Town Teal accent, Crimson Flame reserved for the
-   wordmark only (kept out of buttons/badges so it never collides with
-   Bootstrap's semantic danger/warning red), Ivory Tusk page background,
+   Clean modern retail: Crimson Flame is the primary brand color (navbar,
+   buttons, links, focus states). Capstone Gray ("elephant grey") is the
+   small accent — wordmark mark, hero divider. Ivory Tusk page background.
    Fraunces serif for headings/wordmark, Work Sans for all UI text.
-   Applied identically across customer, employee, and admin pages. */
+   Applied identically across customer, employee, and admin pages.
+
+   Bootstrap's danger color is remapped to amber (see bottom of file) since
+   crimson red would otherwise be indistinguishable from delete/out-of-stock/
+   warning signals — those need to stay visually distinct from brand actions. */
 
 :root {
     --font-display: "Fraunces", Georgia, "Times New Roman", serif;
     --font-body: "Work Sans", system-ui, -apple-system, sans-serif;
 
-    --brand-teal: #005c84;
-    --brand-teal-dark: #003a53;
-    --brand-teal-tint: rgba(0, 92, 132, 0.08);
     --brand-crimson: #9e1b32;
+    --brand-crimson-dark: #6e1424;
+    --brand-crimson-tint: rgba(158, 27, 50, 0.08);
     --brand-ivory: #dad7cb;
     --brand-ivory-soft: #e9e7de;
     --brand-gray: #828a8f;
     --brand-gray-dark: #5f6a72;
     --brand-ink: #23282b;
+    --brand-amber: #c2670f;
+    --brand-amber-dark: #96500b;
 }
 
 /* --- Base --- */
@@ -41,17 +46,17 @@ h1, h2, h3, h4, h5, h6,
 }
 
 a {
-    color: var(--brand-teal);
+    color: var(--brand-crimson);
 }
 
 a:hover {
-    color: var(--brand-teal-dark);
+    color: var(--brand-crimson-dark);
 }
 
 /* --- Navbar / wordmark --- */
 
 .site-navbar {
-    background: linear-gradient(135deg, var(--brand-teal-dark), var(--brand-teal));
+    background: linear-gradient(135deg, var(--brand-crimson-dark), var(--brand-crimson));
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -69,7 +74,7 @@ a:hover {
     width: 0.55rem;
     height: 0.55rem;
     margin-right: 0.55rem;
-    background: var(--brand-crimson);
+    background: var(--brand-gray);
     border-radius: 2px;
     transform: rotate(45deg);
 }
@@ -81,7 +86,7 @@ a:hover {
 .navbar .nav-link.active {
     color: #fff !important;
     text-decoration: underline;
-    text-decoration-color: var(--brand-crimson);
+    text-decoration-color: var(--brand-gray);
     text-decoration-thickness: 2px;
     text-underline-offset: 6px;
 }
@@ -89,7 +94,7 @@ a:hover {
 /* --- Hero banner (customer home) --- */
 
 .brand-hero {
-    background: linear-gradient(135deg, var(--brand-teal-dark), var(--brand-teal));
+    background: linear-gradient(135deg, var(--brand-crimson-dark), var(--brand-crimson));
     color: #fff;
     padding: 2.5rem 1rem;
     margin-bottom: 2rem;
@@ -110,7 +115,7 @@ a:hover {
 .brand-hero .accent-rule {
     width: 3rem;
     height: 3px;
-    background: var(--brand-crimson);
+    background: var(--brand-gray);
     margin: 0.9rem auto 0;
     border-radius: 2px;
 }
@@ -121,7 +126,7 @@ a:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid var(--brand-teal);
+    border-bottom: 2px solid var(--brand-crimson);
     padding-bottom: 0.75rem;
     margin-bottom: 1.25rem;
 }
@@ -172,8 +177,8 @@ a:hover {
 }
 
 .card-header {
-    background-color: var(--brand-teal-tint);
-    border-bottom: 1px solid rgba(0, 92, 132, 0.15);
+    background-color: var(--brand-crimson-tint);
+    border-bottom: 1px solid rgba(158, 27, 50, 0.15);
     font-weight: 600;
 }
 
@@ -181,69 +186,70 @@ a:hover {
 
 #bookContainer ~ * .card.sticky-top,
 .card.sticky-top {
-    border-top: 4px solid var(--brand-teal);
+    border-top: 4px solid var(--brand-crimson);
 }
 
 /* Report stat cards (admin) */
 
 #statsSummaryRow .card {
-    border-top: 3px solid var(--brand-teal);
+    border-top: 3px solid var(--brand-crimson);
     text-align: center;
 }
 
 #statsSummaryRow .fs-4 {
-    color: var(--brand-teal-dark);
+    color: var(--brand-crimson-dark);
 }
 
-/* --- Buttons (primary only — success/danger/secondary stay Bootstrap default
-   so stock/status/delete signals never compete visually with the brand color) --- */
+/* --- Buttons (primary only — success/secondary stay Bootstrap default;
+   danger is remapped below so delete/out-of-stock signals never compete
+   visually with the brand color) --- */
 
 .btn-primary {
-    --bs-btn-bg: var(--brand-teal);
-    --bs-btn-border-color: var(--brand-teal);
-    --bs-btn-hover-bg: var(--brand-teal-dark);
-    --bs-btn-hover-border-color: var(--brand-teal-dark);
-    --bs-btn-active-bg: var(--brand-teal-dark);
-    --bs-btn-active-border-color: var(--brand-teal-dark);
-    --bs-btn-disabled-bg: var(--brand-teal);
-    --bs-btn-disabled-border-color: var(--brand-teal);
-    --bs-btn-focus-shadow-rgb: 0, 92, 132;
+    --bs-btn-bg: var(--brand-crimson);
+    --bs-btn-border-color: var(--brand-crimson);
+    --bs-btn-hover-bg: var(--brand-crimson-dark);
+    --bs-btn-hover-border-color: var(--brand-crimson-dark);
+    --bs-btn-active-bg: var(--brand-crimson-dark);
+    --bs-btn-active-border-color: var(--brand-crimson-dark);
+    --bs-btn-disabled-bg: var(--brand-crimson);
+    --bs-btn-disabled-border-color: var(--brand-crimson);
+    --bs-btn-focus-shadow-rgb: 158, 27, 50;
 }
 
 .btn-outline-primary {
-    --bs-btn-color: var(--brand-teal);
-    --bs-btn-border-color: var(--brand-teal);
-    --bs-btn-hover-bg: var(--brand-teal);
-    --bs-btn-hover-border-color: var(--brand-teal);
-    --bs-btn-active-bg: var(--brand-teal-dark);
-    --bs-btn-active-border-color: var(--brand-teal-dark);
-    --bs-btn-focus-shadow-rgb: 0, 92, 132;
+    --bs-btn-color: var(--brand-crimson);
+    --bs-btn-border-color: var(--brand-crimson);
+    --bs-btn-hover-bg: var(--brand-crimson);
+    --bs-btn-hover-border-color: var(--brand-crimson);
+    --bs-btn-active-bg: var(--brand-crimson-dark);
+    --bs-btn-active-border-color: var(--brand-crimson-dark);
+    --bs-btn-focus-shadow-rgb: 158, 27, 50;
 }
 
 .text-primary {
-    color: var(--brand-teal) !important;
+    color: var(--brand-crimson) !important;
 }
 
 .bg-primary {
-    background-color: var(--brand-teal) !important;
+    background-color: var(--brand-crimson) !important;
 }
 
 .border-primary {
-    border-color: var(--brand-teal) !important;
+    border-color: var(--brand-crimson) !important;
 }
 
 /* --- Forms --- */
 
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--brand-teal);
-    box-shadow: 0 0 0 0.25rem rgba(0, 92, 132, 0.2);
+    border-color: var(--brand-crimson);
+    box-shadow: 0 0 0 0.25rem rgba(158, 27, 50, 0.2);
 }
 
 .input-group-text {
-    background-color: var(--brand-teal-tint);
-    border-color: rgba(0, 92, 132, 0.2);
-    color: var(--brand-teal-dark);
+    background-color: var(--brand-crimson-tint);
+    border-color: rgba(158, 27, 50, 0.2);
+    color: var(--brand-crimson-dark);
     font-weight: 600;
 }
 
@@ -254,16 +260,57 @@ a:hover {
     font-size: 0.72rem;
     letter-spacing: 0.06em;
     color: var(--brand-gray-dark);
-    border-bottom: 2px solid var(--brand-teal);
+    border-bottom: 2px solid var(--brand-crimson);
     font-weight: 600;
 }
 
 /* --- Modals --- */
 
 .modal-header {
-    border-bottom: 1px solid rgba(0, 92, 132, 0.15);
+    border-bottom: 1px solid rgba(158, 27, 50, 0.15);
 }
 
 .modal-title {
     font-family: var(--font-display);
+}
+
+/* --- Danger remap (amber, not red) ---
+   Now that crimson is the primary brand color, Bootstrap's default red
+   "danger" would be visually confusable with brand-colored buttons/links.
+   Delete actions, out-of-stock badges, and low-stock warnings all use
+   .btn-danger/.btn-outline-danger/.bg-danger/.text-danger, so remapping
+   here keeps those signals distinct without touching any JS. */
+
+.btn-danger {
+    --bs-btn-bg: var(--brand-amber);
+    --bs-btn-border-color: var(--brand-amber);
+    --bs-btn-hover-bg: var(--brand-amber-dark);
+    --bs-btn-hover-border-color: var(--brand-amber-dark);
+    --bs-btn-active-bg: var(--brand-amber-dark);
+    --bs-btn-active-border-color: var(--brand-amber-dark);
+    --bs-btn-disabled-bg: var(--brand-amber);
+    --bs-btn-disabled-border-color: var(--brand-amber);
+    --bs-btn-focus-shadow-rgb: 194, 103, 15;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: var(--brand-amber);
+    --bs-btn-border-color: var(--brand-amber);
+    --bs-btn-hover-bg: var(--brand-amber);
+    --bs-btn-hover-border-color: var(--brand-amber);
+    --bs-btn-active-bg: var(--brand-amber-dark);
+    --bs-btn-active-border-color: var(--brand-amber-dark);
+    --bs-btn-focus-shadow-rgb: 194, 103, 15;
+}
+
+.text-danger {
+    color: var(--brand-amber) !important;
+}
+
+.bg-danger {
+    background-color: var(--brand-amber) !important;
+}
+
+.border-danger {
+    border-color: var(--brand-amber) !important;
 }
