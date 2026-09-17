@@ -1,0 +1,9 @@
+#bookContainer .card-img-top {
+            height: 140px;
+            object-fit: contain;
+}
+
+#bookContainer .card.out-of-stock .card-img-top {
+            filter: grayscale(100%);
+            opacity: 0.6;
+}

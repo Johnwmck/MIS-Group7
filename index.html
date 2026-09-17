@@ -3,11 +3,13 @@
 <head>
     <title>Team 7 Books</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
+    <h1 class="text-center">Bookstore</h1>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.html">Team 7 Books</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -15,47 +17,50 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-    <ul class="navbar-nav">
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="pagesDropdown" role="button"
-                data-bs-toggle="dropdown" aria-expanded="false">
-                Page Selection
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="pagesDropdown">
-                <li><a class="dropdown-item active" aria-current="page" href="index.html">Bookstore</a></li>
-                <li><a class="dropdown-item" href="employee.html">Employee Portal</a></li>
-                <li><a class="dropdown-item" href="admin.html">Admin Portal</a></li>
-            </ul>
-        </li>
-    </ul>
-
-    <ul class="navbar-nav ms-auto">
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="cartDropdown" role="button"
-                data-bs-toggle="dropdown" aria-expanded="false">
-                🛒 Cart <span class="badge bg-danger" id="cartCount">0</span>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end p-2" aria-labelledby="cartDropdown"
-                id="cartMenu" style="min-width: 280px;">
-                <li id="cartEmptyMessage" class="px-2 text-muted">Your cart is empty</li>
-                <li id="cartItemsList"></li>
-                <li><hr class="dropdown-divider"></li>
-                <li class="d-flex justify-content-between px-2">
-                    <strong>Total:</strong>
-                    <strong id="cartTotal">$0.00</strong>
-                </li>
-            </ul>
-        </li>
-    </ul>
-</div>
-
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="index.html">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="employee.html">Employee Portal</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="admin.html">Admin Portal</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
     <div class="container">
-    <div class="row row-cols-1 row-cols-md-3 g-4" id="bookContainer">
+        <div class="row">
+            <div class="col-lg-9">
+                <div class="input-group mb-3">
+                    <select class="form-select" id="searchFieldSelect" style="max-width: 140px;">
+                        <option value="title" selected>Title</option>
+                        <option value="author">Author</option>
+                        <option value="genre">Genre</option>
+                    </select>
+                    <input type="search" class="form-control" id="searchInput" placeholder="Search...">
+                </div>
+                <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3" id="bookContainer">
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="card sticky-top" style="top: 1rem;">
+                    <div class="card-header">
+                        <h5 class="mb-0">Cart</h5>
+                    </div>
+                    <div class="card-body">
+                        <p id="cartEmptyMessage" class="text-muted mb-0">Your cart is empty.</p>
+                        <div id="cartItems"></div>
+                        <p id="cartTotal" class="fw-bold mt-2 d-none"></p>
+                        <button type="button" class="btn btn-primary w-100 d-none" id="checkoutButton">Checkout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
     <div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -80,7 +85,7 @@
 </div>
 
 
-    <button id="resetCatalogButton">Reset Catalog</button>
+    <button id="resetCatalogButton" class=>Reset Catalog</button> <!-- delete or add "d-none" before >Reset Catalog if you want reset or add button -->
 
     <script src="scripts/data.js"></script>
     <script src="scripts/customer.js"></script>
