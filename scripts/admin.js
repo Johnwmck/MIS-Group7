@@ -6,6 +6,8 @@ const LOW_STOCK_THRESHOLD = 3;
 const bookList = loadBooksFromStorage();
 const inventoryTableBody = document.getElementById('inventoryTableBody');
 
+// --- Inventory and catalog management ---
+
 function renderInventory() {
     inventoryTableBody.innerHTML = '';
 
@@ -79,6 +81,8 @@ function renderInventory() {
         });
 
         const toggleStockButton = row.querySelector('.toggle-stock-btn');
+        // Zero inventory is always out of stock. The manual override only lets
+        // Admin make a book unavailable while physical inventory still exists.
         toggleStockButton.disabled = book.inventory <= 0;
         toggleStockButton.addEventListener('click', function () {
             book.manualStockOverride = book.manualStockOverride === true ? null : true;
@@ -121,6 +125,7 @@ function applyTitleFilter() {
 const resetCatalogButton = document.getElementById("resetCatalogButton");
 
 resetCatalogButton.addEventListener("click", function () {
+    // Restore a clean demo state: seed catalog plus no historical sales data.
     localStorage.removeItem("savedBooks");
     localStorage.removeItem("savedOrders")
     location.reload();
@@ -202,6 +207,7 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
             book.status = status;
         }
     } else {
+        // Maximum ID + 1 remains unique even if an earlier book was deleted.
         const nextId = bookList.reduce(function (max, b) { return Math.max(max, b.id); }, 0) + 1;
         bookList.push(new Book(nextId, isbn, title, author, genre, price, inventory, status, image));
     }
@@ -247,6 +253,7 @@ function renderStats() {
     const revenue = orders.reduce(function (sum, order) { return sum + (order.total || 0); }, 0);
 
     const titleCounts = {};
+    // Combine quantities across every saved order before choosing the top five.
     orders.forEach(function (order) {
         (order.items || []).forEach(function (item) {
             titleCounts[item.title] = (titleCounts[item.title] || 0) + (item.quantity || 1);

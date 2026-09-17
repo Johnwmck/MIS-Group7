@@ -87,11 +87,7 @@ function purchaseCart(cart) {
         const selection = cart[i];
         if (selection.inventory > 0) {
             selection.inventory -= 1;
-            console.log("Purchased: " + selection.title + ". Remaining inventory: " + selection.inventory);
             cart.splice(i, 1);
-        }
-        else {
-            console.log("Sorry, " + selection.title + " is out of stock.");
         }
     }
     renderCart();
@@ -279,11 +275,6 @@ buyNowButton.addEventListener("click", function () {
         updateBookModal(selectedBook)
         showCartToast("\"" + selectedBook.title + "\" was purchased successfully.", "success");
     }
-
-    else {
-        console.log("Sorry, " + selectedBook.title + " is out of stock. (Something is wrong...[DEBUG])");
-    }
-
 });
 
 renderCatalog();

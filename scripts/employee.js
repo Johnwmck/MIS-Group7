@@ -1,7 +1,9 @@
-// Employee behavior, marking books active/inactive, updating inventory, etc. Don't mix admin functions here.
+// Employee inventory operations. Catalog details, pricing, and listing status remain Admin responsibilities.
 
 const bookList = loadBooksFromStorage();
 const inventoryTableBody = document.getElementById('inventoryTableBody');
+
+// --- Inventory table ---
 
 function renderInventory() {
     inventoryTableBody.innerHTML = '';
@@ -40,6 +42,7 @@ function renderInventory() {
         });
 
         const toggleStockButton = row.querySelector('.toggle-stock-btn');
+        // Zero inventory is always out of stock. Employees must add inventory before clearing a manual out-of-stock override.
         toggleStockButton.disabled = book.inventory <= 0;
         toggleStockButton.addEventListener('click', function () {
             book.manualStockOverride = book.manualStockOverride === true ? null : true;

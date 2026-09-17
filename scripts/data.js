@@ -20,9 +20,11 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image, m
 }
 
 function isBookOutOfStock(book) {
+    // Inventory reaching zero always wins; the manual override can only make an otherwise available book unavailable.
     return book.manualStockOverride === true || book.inventory <= 0;
 }
 
+// Seed data for books
 const book1 = new Book(
     1,
     "978-0-06-112008-4",
@@ -293,9 +295,7 @@ function loadBooksFromStorage() {
         saveBooksToStorage(books);
     }
 
-    // Older cached data (saved before prices were stored as plain numbers)
-    // may have `price` saved as a formatted string like "$14.99". Coerce it
-    // back to a number so currencyFormatter doesn't produce "$NaN".
+    // Older cached data (saved before prices were stored as plain numbers) may have `price` saved as a formatted string like "$14.99". Coerce it back to a number so currencyFormatter doesn't produce "$NaN".
     let neededFix = false;
     books.forEach(function (book) {
         if (typeof book.price !== 'number') {
@@ -314,8 +314,7 @@ function saveBooksToStorage(books) {
     localStorage.setItem('savedBooks', JSON.stringify(books));
 }
 
-// Orders are only written once the checkout flow saves them; until then this
-// returns an empty list so reporting (e.g. admin stats) degrades gracefully.
+// Orders are only written once the checkout flow saves them; until then this returns an empty list so reporting (e.g. admin stats) degrades gracefully.
 function loadOrdersFromStorage() {
     return JSON.parse(localStorage.getItem('savedOrders')) || [];
 }
