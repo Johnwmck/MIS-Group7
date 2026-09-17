@@ -25,7 +25,8 @@ function createBookCard(book) {
             </div>
             <div class="card-body">
                 <h5 class="card-title">${book.title}</h5>
-                <p class="card-text">${book.author}</p>
+                <p class="card-text mb-1">${book.author}</p>
+                <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
             </div>
         </div>
     `;
@@ -106,8 +107,54 @@ const cartEmptyMessage = document.getElementById("cartEmptyMessage");
 const cartTotal = document.getElementById("cartTotal");
 const checkoutButton = document.getElementById("checkoutButton");
 
+function groupCart(cartItemsList) {
+    const grouped = [];
+    cartItemsList.forEach(function (book) {
+        const existing = grouped.find(function (item) { return item.book.id === book.id; });
+        if (existing) {
+            existing.quantity += 1;
+        } else {
+            grouped.push({ book: book, quantity: 1 });
+        }
+    });
+    return grouped;
+}
+
+const cartToastEl = document.getElementById("cartToast");
+const cartToastBody = document.getElementById("cartToastBody");
+const cartToast = new bootstrap.Toast(cartToastEl);
+
+function showCartToast(message, variant) {
+    cartToastEl.classList.remove("text-bg-warning", "text-bg-success");
+    cartToastEl.classList.add(variant === "success" ? "text-bg-success" : "text-bg-warning");
+    cartToastBody.textContent = message;
+    cartToast.show();
+}
+
+const checkoutConfirmModalEl = document.getElementById("checkoutConfirmModal");
+const checkoutConfirmModal = new bootstrap.Modal(checkoutConfirmModalEl);
+const checkoutSummaryItems = document.getElementById("checkoutSummaryItems");
+const checkoutSummaryTotal = document.getElementById("checkoutSummaryTotal");
+const confirmCheckoutButton = document.getElementById("confirmCheckoutButton");
+
 checkoutButton.addEventListener("click", function () {
-    purchaseCart(cart)
+    const grouped = groupCart(cart);
+    let total = 0;
+    checkoutSummaryItems.innerHTML = grouped.map(function (item) {
+        total += item.book.price * item.quantity;
+        return `<div class="d-flex justify-content-between">
+            <span>${item.book.title}${item.quantity > 1 ? " x" + item.quantity : ""}</span>
+            <span>${currencyFormatter.format(item.book.price * item.quantity)}</span>
+        </div>`;
+    }).join("");
+    checkoutSummaryTotal.textContent = "Total: " + currencyFormatter.format(total);
+    checkoutConfirmModal.show();
+});
+
+confirmCheckoutButton.addEventListener("click", function () {
+    purchaseCart(cart);
+    checkoutConfirmModal.hide();
+    showCartToast("Order placed! Thank you for shopping with Team 7 Books.", "success");
 });
 
 function renderCart() {
@@ -124,15 +171,7 @@ function renderCart() {
     cartTotal.classList.remove("d-none");
     checkoutButton.classList.remove("d-none");
 
-    const grouped = [];
-    cart.forEach(function (book) {
-        const existing = grouped.find(function (item) { return item.book.id === book.id; });
-        if (existing) {
-            existing.quantity += 1;
-        } else {
-            grouped.push({ book: book, quantity: 1 });
-        }
-    });
+    const grouped = groupCart(cart);
 
     let total = 0;
     grouped.forEach(function (item) {
@@ -180,6 +219,7 @@ addToCartButton.addEventListener("click", function () {
     }
     else {
         console.log(selectedBook.title + " not added to cart because cart quantity would go over " + selectedBook.inventory + " . Cart has " + quantityInCart + ".")
+        showCartToast("You already have all " + selectedBook.inventory + " available copies of \"" + selectedBook.title + "\" in your cart.", "warning");
     }
 });
 
@@ -202,6 +242,7 @@ buyNowButton.addEventListener("click", function () {
         saveBooksToStorage(bookList)
         renderCatalog()
         updateBookModal(selectedBook)
+        showCartToast("\"" + selectedBook.title + "\" was low in stock, so one copy was removed from your cart to complete this purchase.", "warning");
     }
     else if (selectedBook.inventory > 0) {
         console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory);

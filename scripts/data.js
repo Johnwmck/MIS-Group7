@@ -295,11 +295,36 @@ function loadBooksFromStorage() {
         books = initialBooks;
         saveBooksToStorage(books);
     }
+
+    // Older cached data (saved before prices were stored as plain numbers)
+    // may have `price` saved as a formatted string like "$14.99". Coerce it
+    // back to a number so currencyFormatter doesn't produce "$NaN".
+    let neededFix = false;
+    books.forEach(function (book) {
+        if (typeof book.price !== 'number') {
+            book.price = parseFloat(String(book.price).replace(/[^0-9.]/g, ''));
+            neededFix = true;
+        }
+    });
+    if (neededFix) {
+        saveBooksToStorage(books);
+    }
+
     return books;
 }
 
 function saveBooksToStorage(books) {
     localStorage.setItem('savedBooks', JSON.stringify(books));
+}
+
+// Orders are only written once the checkout flow saves them; until then this
+// returns an empty list so reporting (e.g. admin stats) degrades gracefully.
+function loadOrdersFromStorage() {
+    return JSON.parse(localStorage.getItem('savedOrders')) || [];
+}
+
+function saveOrdersToStorage(orders) {
+    localStorage.setItem('savedOrders', JSON.stringify(orders));
 }
 
 
