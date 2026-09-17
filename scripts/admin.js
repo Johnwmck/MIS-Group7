@@ -122,6 +122,7 @@ const resetCatalogButton = document.getElementById("resetCatalogButton");
 
 resetCatalogButton.addEventListener("click", function () {
     localStorage.removeItem("savedBooks");
+    localStorage.removeItem("savedOrders")
     location.reload();
 });
 

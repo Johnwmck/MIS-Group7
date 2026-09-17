@@ -241,12 +241,10 @@ addToCartButton.addEventListener("click", function () {
 
     if (quantityInCart < selectedBook.inventory) {
         cart.push(selectedBook);
-        console.log("Book added to cart: " + selectedBook.title + " with quantity: " + (selectedBook.inventory - quantityInCart));
         renderCart();
         showCartToast("\"" + selectedBook.title + "\" was added to your cart.", "success");
     }
     else {
-        console.log(selectedBook.title + " not added to cart because cart quantity would go over " + selectedBook.inventory + " . Cart has " + quantityInCart + ".")
         showCartToast("You already have all " + selectedBook.inventory + " available copies of \"" + selectedBook.title + "\" in your cart.", "warning");
     }
 });
@@ -265,7 +263,7 @@ buyNowButton.addEventListener("click", function () {
             cart.splice(index, 1);
             renderCart();
         }
-        console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory + ". One copy removed from cart to compensate!");
+        saveOrder([selectedBook])
         selectedBook.inventory -= 1;
         saveBooksToStorage(bookList)
         renderCatalog()
@@ -273,7 +271,7 @@ buyNowButton.addEventListener("click", function () {
         showCartToast("\"" + selectedBook.title + "\" was purchased. One copy was removed from your cart to keep it within the remaining inventory.", "success");
     }
     else if (selectedBook.inventory > 0) {
-        console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory);
+        saveOrder([selectedBook])
         selectedBook.inventory -= 1;
         renderCart();
         saveBooksToStorage(bookList)
@@ -283,7 +281,7 @@ buyNowButton.addEventListener("click", function () {
     }
 
     else {
-        console.log("Sorry, " + selectedBook.title + " is out of stock.");
+        console.log("Sorry, " + selectedBook.title + " is out of stock. (Something is wrong...[DEBUG])");
     }
 
 });
