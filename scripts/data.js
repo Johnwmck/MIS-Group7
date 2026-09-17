@@ -15,15 +15,12 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image, m
     this.inventory = inventory;
     this.status = status;
     this.image = image;
-    // null = automatic (based on inventory), true = forced out of stock, false = forced in stock
+    // null = automatic (based on inventory), true = forced out of stock
     this.manualStockOverride = manualStockOverride;
 }
 
 function isBookOutOfStock(book) {
-    if (book.manualStockOverride !== null && book.manualStockOverride !== undefined) {
-        return book.manualStockOverride;
-    }
-    return book.inventory <= 0;
+    return book.manualStockOverride === true || book.inventory <= 0;
 }
 
 const book1 = new Book(

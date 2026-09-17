@@ -78,8 +78,10 @@ function renderInventory() {
             renderStats();
         });
 
-        row.querySelector('.toggle-stock-btn').addEventListener('click', function () {
-            book.manualStockOverride = !isBookOutOfStock(book);
+        const toggleStockButton = row.querySelector('.toggle-stock-btn');
+        toggleStockButton.disabled = book.inventory <= 0;
+        toggleStockButton.addEventListener('click', function () {
+            book.manualStockOverride = book.manualStockOverride === true ? null : true;
             saveBooksToStorage(bookList);
             renderInventory();
             renderStats();
