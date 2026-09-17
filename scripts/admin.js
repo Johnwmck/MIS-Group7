@@ -20,15 +20,15 @@ function renderInventory() {
             <td>${book.author}</td>
             <td>${book.genre}</td>
             <td>
-                <div class="input-group input-group-sm" style="max-width: 150px;">
+                <div class="input-group input-group-sm" style="max-width: 230px;">
                     <span class="input-group-text">$</span>
-                    <input type="number" min="0" step="0.01" class="form-control price-input" value="${book.price}">
+                    <input type="number" min="0" step="0.01" class="form-control price-input" value="${book.price}" style="min-width: 70px;">
                     <button type="button" class="btn btn-outline-secondary update-price-btn">Update</button>
                 </div>
             </td>
             <td>
-                <div class="input-group input-group-sm" style="max-width: 160px;">
-                    <input type="number" min="0" class="form-control inventory-input" value="${book.inventory}">
+                <div class="input-group input-group-sm" style="max-width: 110px;">
+                    <input type="number" min="0" class="form-control inventory-input" value="${book.inventory}" style="min-width: 40px;">
                     <button type="button" class="btn btn-outline-secondary update-inventory-btn">Update</button>
                 </div>
             </td>

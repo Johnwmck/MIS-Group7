@@ -16,8 +16,8 @@ function renderInventory() {
             <td>${book.title}</td>
             <td>${book.author}</td>
             <td>
-                <div class="input-group input-group-sm" style="max-width: 160px;">
-                    <input type="number" min="0" class="form-control inventory-input" value="${book.inventory}">
+                <div class="input-group input-group-sm" style="max-width: 110px;">
+                    <input type="number" min="0" class="form-control inventory-input" value="${book.inventory}" style="min-width: 40px;">
                     <button type="button" class="btn btn-outline-secondary update-inventory-btn">Update</button>
                 </div>
             </td>
