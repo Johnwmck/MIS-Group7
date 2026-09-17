@@ -37,7 +37,12 @@ body {
     color: var(--brand-ink);
 }
 
-h1, h2, h3, h4, h5, h6,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
 .navbar-brand,
 .card-title {
     font-family: var(--font-display);
@@ -184,7 +189,7 @@ a:hover {
 
 /* Cart card */
 
-#bookContainer ~ * .card.sticky-top,
+#bookContainer~* .card.sticky-top,
 .card.sticky-top {
     border-top: 4px solid var(--brand-crimson);
 }

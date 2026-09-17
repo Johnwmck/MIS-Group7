@@ -289,10 +289,3 @@ buyNowButton.addEventListener("click", function () {
 });
 
 renderCatalog();
-
-const resetCatalogButton = document.getElementById("resetCatalogButton");
-
-resetCatalogButton.addEventListener("click", function () {
-    localStorage.removeItem("savedBooks");
-    location.reload();
-});
