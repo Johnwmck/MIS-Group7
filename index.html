@@ -71,26 +71,26 @@
     </div>
 
     <div class="modal fade" id="bookModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalBookTitle"></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <img id="modalBookImage" src="" alt="" class="img-fluid mb-3">
-        <p id="modalBookAuthor"></p>
-        <p id="modalBookGenre"></p>
-        <p id="modalBookPrice"></p>
-        <p id="modalBookInventory"></p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" id="addToCartButton">Add to Cart</button>
-        <button type="button" class="btn btn-success" id="buyNowButton">Buy Now</button>
-      </div>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalBookTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <img id="modalBookImage" src="" alt="" class="img-fluid mb-3">
+                    <p id="modalBookAuthor"></p>
+                    <p id="modalBookGenre"></p>
+                    <p id="modalBookPrice"></p>
+                    <p id="modalBookInventory"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="addToCartButton">Add to Cart</button>
+                    <button type="button" class="btn btn-success" id="buyNowButton">Buy Now</button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 
 
     <div class="modal fade" id="checkoutConfirmModal" tabindex="-1" aria-hidden="true">
@@ -113,7 +113,8 @@
     </div>
 
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div id="cartToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div id="cartToast" class="toast align-items-center border-0" role="alert" aria-live="assertive"
+            aria-atomic="true">
             <div class="d-flex">
                 <div class="toast-body" id="cartToastBody"></div>
                 <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
