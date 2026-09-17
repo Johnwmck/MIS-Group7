@@ -120,6 +120,32 @@ function groupCart(cartItemsList) {
     return grouped;
 }
 
+function saveOrder(cartItemsList) {
+    const grouped = groupCart(cartItemsList);
+    const items = grouped.map(function (item) {
+        return {
+            bookId: item.book.id,
+            title: item.book.title,
+            price: item.book.price,
+            quantity: item.quantity
+        };
+    });
+    const total = items.reduce(function (sum, item) {
+        return sum + item.price * item.quantity;
+    }, 0);
+
+    const order = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        items: items,
+        total: total
+    };
+
+    const orders = loadOrdersFromStorage();
+    orders.push(order);
+    saveOrdersToStorage(orders);
+}
+
 const cartToastEl = document.getElementById("cartToast");
 const cartToastBody = document.getElementById("cartToastBody");
 const cartToast = new bootstrap.Toast(cartToastEl);
@@ -152,6 +178,7 @@ checkoutButton.addEventListener("click", function () {
 });
 
 confirmCheckoutButton.addEventListener("click", function () {
+    saveOrder(cart);
     purchaseCart(cart);
     checkoutConfirmModal.hide();
     showCartToast("Order placed! Thank you for shopping with Team 7 Books.", "success");
@@ -216,6 +243,7 @@ addToCartButton.addEventListener("click", function () {
         cart.push(selectedBook);
         console.log("Book added to cart: " + selectedBook.title + " with quantity: " + (selectedBook.inventory - quantityInCart));
         renderCart();
+        showCartToast("\"" + selectedBook.title + "\" was added to your cart.", "success");
     }
     else {
         console.log(selectedBook.title + " not added to cart because cart quantity would go over " + selectedBook.inventory + " . Cart has " + quantityInCart + ".")
@@ -242,7 +270,7 @@ buyNowButton.addEventListener("click", function () {
         saveBooksToStorage(bookList)
         renderCatalog()
         updateBookModal(selectedBook)
-        showCartToast("\"" + selectedBook.title + "\" was low in stock, so one copy was removed from your cart to complete this purchase.", "warning");
+        showCartToast("\"" + selectedBook.title + "\" was purchased. One copy was removed from your cart to keep it within the remaining inventory.", "success");
     }
     else if (selectedBook.inventory > 0) {
         console.log("Book bought now: " + selectedBook.title + " with quantity: " + selectedBook.inventory);
@@ -251,6 +279,7 @@ buyNowButton.addEventListener("click", function () {
         saveBooksToStorage(bookList)
         renderCatalog()
         updateBookModal(selectedBook)
+        showCartToast("\"" + selectedBook.title + "\" was purchased successfully.", "success");
     }
 
     else {

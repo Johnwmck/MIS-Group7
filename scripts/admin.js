@@ -118,6 +118,13 @@ function applyTitleFilter() {
     });
 }
 
+const resetCatalogButton = document.getElementById("resetCatalogButton");
+
+resetCatalogButton.addEventListener("click", function () {
+    localStorage.removeItem("savedBooks");
+    location.reload();
+});
+
 titleSearchInput.addEventListener('input', applyTitleFilter);
 
 // --- Add / Edit book form ---
