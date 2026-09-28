@@ -187,13 +187,6 @@ a:hover {
     font-weight: 600;
 }
 
-/* Cart card */
-
-#bookContainer~* .card.sticky-top,
-.card.sticky-top {
-    border-top: 4px solid var(--brand-crimson);
-}
-
 /* Report stat cards (admin) */
 
 #statsSummaryRow .card {

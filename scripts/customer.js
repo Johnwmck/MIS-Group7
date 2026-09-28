@@ -2,11 +2,10 @@
 
 const bookContainer = document.getElementById('bookContainer');
 
-const bookList = loadBooksFromStorage();
+let bookList = loadBooksFromStorage();
 
 let selectedBook = null;
 
-let cart = [];
 
 function createBookCard(book) {
     const col = document.createElement('div');
@@ -18,7 +17,7 @@ function createBookCard(book) {
     const outOfStock = isBookOutOfStock(book);
 
     col.innerHTML = `
-        <div class="card h-100${outOfStock ? ' out-of-stock' : ''}" role="button" data-bs-toggle="modal" data-bs-target="#bookModal">
+        <div class="card h-100${outOfStock ? ' out-of-stock' : ''}" role="button">
             <div class="position-relative">
                 <img src="${book.image}" class="card-img-top" alt="${book.title}">
                 ${outOfStock ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>' : ''}
@@ -28,13 +27,31 @@ function createBookCard(book) {
                 <p class="card-text mb-1">${book.author}</p>
                 <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
                 <p class="card-text small">${getCustomerAvailability(book)}</p>
+                <button type="button" class="btn btn-primary btn-sm quick-add-button"
+                    ${outOfStock ? 'disabled' : ''}>
+                    Add to Cart
+                </button>
             </div>
         </div>
     `;
 
-    col.querySelector('.card').addEventListener('click', function () {
+    col.querySelector('.card').addEventListener('click', function (event) {
+        if (event.target.closest('.quick-add-button')) {
+            return;
+        }
+
         selectedBook = book;
-        updateBookModal(book)
+        updateBookModal(book);
+
+        const modalElement = document.getElementById('bookModal');
+        bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    });
+
+    const quickAddButton = col.querySelector('.quick-add-button');
+
+    quickAddButton.addEventListener('click', function (event) {
+        event.stopPropagation();
+        addBookToCart(book.id);
     });
 
     bookContainer.appendChild(col);
@@ -49,7 +66,7 @@ function updateBookModal(book) {
     document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
     document.getElementById('modalBookDescription').textContent = book.description || 'No description available yet.';
 
-    const bookOutOfStock = isBookOutOfStock(book);
+    const bookOutOfStock = book.status !== 'Active' || isBookOutOfStock(book);
     const inventoryText = document.getElementById('modalBookInventory');
     inventoryText.textContent = getCustomerAvailability(book);
     inventoryText.classList.toggle('text-danger', bookOutOfStock);
@@ -84,66 +101,6 @@ searchFieldSelect.addEventListener('change', applySearchFilter);
 
 
 
-function purchaseCart(cart) {
-    for (let i = cart.length - 1; i >= 0; i--) {
-        const selection = cart[i];
-        if (selection.inventory > 0) {
-            selection.inventory -= 1;
-            cart.splice(i, 1);
-        }
-    }
-    renderCart();
-    renderCatalog();
-    saveBooksToStorage(bookList)
-    if (selectedBook != null) {
-        updateBookModal(selectedBook)
-    }
-}
-
-const cartItemsContainer = document.getElementById("cartItems");
-const cartEmptyMessage = document.getElementById("cartEmptyMessage");
-const cartTotal = document.getElementById("cartTotal");
-const checkoutButton = document.getElementById("checkoutButton");
-
-function groupCart(cartItemsList) {
-    const grouped = [];
-    cartItemsList.forEach(function (book) {
-        const existing = grouped.find(function (item) { return item.book.id === book.id; });
-        if (existing) {
-            existing.quantity += 1;
-        } else {
-            grouped.push({ book: book, quantity: 1 });
-        }
-    });
-    return grouped;
-}
-
-function saveOrder(cartItemsList) {
-    const grouped = groupCart(cartItemsList);
-    const items = grouped.map(function (item) {
-        return {
-            bookId: item.book.id,
-            title: item.book.title,
-            price: item.book.price,
-            quantity: item.quantity
-        };
-    });
-    const total = items.reduce(function (sum, item) {
-        return sum + item.price * item.quantity;
-    }, 0);
-
-    const order = {
-        id: Date.now(),
-        date: new Date().toISOString(),
-        items: items,
-        total: total
-    };
-
-    const orders = loadOrdersFromStorage();
-    orders.push(order);
-    saveOrdersToStorage(orders);
-}
-
 const cartToastEl = document.getElementById("cartToast");
 const cartToastBody = document.getElementById("cartToastBody");
 const cartToast = new bootstrap.Toast(cartToastEl);
@@ -155,128 +112,98 @@ function showCartToast(message, variant) {
     cartToast.show();
 }
 
-const checkoutConfirmModalEl = document.getElementById("checkoutConfirmModal");
-const checkoutConfirmModal = new bootstrap.Modal(checkoutConfirmModalEl);
-const checkoutSummaryItems = document.getElementById("checkoutSummaryItems");
-const checkoutSummaryTotal = document.getElementById("checkoutSummaryTotal");
-const confirmCheckoutButton = document.getElementById("confirmCheckoutButton");
+function updateCartCount() {
+    const cartItems = loadCartFromStorage();
+    document.getElementById('cartCount').textContent =
+        getCartItemCount(cartItems);
+}
 
-checkoutButton.addEventListener("click", function () {
-    const grouped = groupCart(cart);
-    let total = 0;
-    checkoutSummaryItems.innerHTML = grouped.map(function (item) {
-        total += item.book.price * item.quantity;
-        return `<div class="d-flex justify-content-between">
-            <span>${item.book.title}${item.quantity > 1 ? " x" + item.quantity : ""}</span>
-            <span>${currencyFormatter.format(item.book.price * item.quantity)}</span>
-        </div>`;
-    }).join("");
-    checkoutSummaryTotal.textContent = "Total: " + currencyFormatter.format(total);
-    checkoutConfirmModal.show();
-});
+function updateCartAfterPurchase(bookTitle) {
+    const result = reconcileCart();
+    updateCartCount();
 
-confirmCheckoutButton.addEventListener("click", function () {
-    saveOrder(cart);
-    purchaseCart(cart);
-    checkoutConfirmModal.hide();
-    showCartToast("Order placed! Thank you for shopping with Team 7 Books.", "success");
-});
+    let message = '"' + bookTitle + '" was purchased successfully.';
 
-function renderCart() {
-    cartItemsContainer.innerHTML = "";
+    if(result.messages.length > 0) {
+        message += ' ' + result.messages.join(' ');
+    }
 
-    if (cart.length === 0) {
-        cartEmptyMessage.classList.remove("d-none");
-        cartTotal.classList.add("d-none");
-        checkoutButton.classList.add("d-none");
+    showCartToast(message, 'success');
+}
+
+function addBookToCart(bookId) {
+    const cartItems = loadCartFromStorage();
+    const existingItem = cartItems.find(function (item) {
+        return item.bookId === bookId;
+    });
+
+    const quantity = existingItem ? existingItem.quantity + 1 : 1;
+    const error = setCartQuantity(bookId, quantity);
+
+    if (error) {
+        showCartToast(error, 'warning');
         return;
     }
 
-    cartEmptyMessage.classList.add("d-none");
-    cartTotal.classList.remove("d-none");
-    checkoutButton.classList.remove("d-none");
-
-    const grouped = groupCart(cart);
-
-    let total = 0;
-    grouped.forEach(function (item) {
-        total += item.book.price * item.quantity;
-
-        const row = document.createElement("div");
-        row.className = "d-flex justify-content-between align-items-center mb-2";
-        row.innerHTML = `
-            <div class="d-flex align-items-center">
-                <img src="${item.book.image}" alt="${item.book.title}" class="me-2" style="width: 40px; height: 55px; object-fit: contain;">
-                <div>
-                    <div>${item.book.title}${item.quantity > 1 ? " x" + item.quantity : ""}</div>
-                    <small class="text-muted">${currencyFormatter.format(item.book.price)} each</small>
-                </div>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-danger" data-id="${item.book.id}">Remove</button>
-        `;
-        row.querySelector("button").addEventListener("click", function () {
-            const index = cart.findIndex(function (b) { return b.id === item.book.id; });
-            if (index !== -1) {
-                cart.splice(index, 1);
-                renderCart();
-            }
-        });
-        cartItemsContainer.appendChild(row);
-    });
-
-    cartTotal.textContent = "Total: " + currencyFormatter.format(total);
+    updateCartCount();
+    showCartToast('Book added to your cart.', 'success');
 }
 
 const addToCartButton = document.getElementById("addToCartButton");
 
 addToCartButton.addEventListener("click", function () {
-    const cartChecker = cart.filter(function (book) {
-        return book.id === selectedBook.id
-    });
-
-    const quantityInCart = cartChecker.length;
-
-
-    if (quantityInCart < selectedBook.inventory) {
-        cart.push(selectedBook);
-        renderCart();
-        showCartToast("\"" + selectedBook.title + "\" was added to your cart.", "success");
-    }
-    else {
-        showCartToast("You already have all " + selectedBook.inventory + " available copies of \"" + selectedBook.title + "\" in your cart.", "warning");
+    if(selectedBook) {
+        addBookToCart(selectedBook.id);
     }
 });
 
-const buyNowButton = document.getElementById("buyNowButton");
-buyNowButton.addEventListener("click", function () {
-    const cartChecker = cart.filter(function (book) {
-        return book.id === selectedBook.id
-    });
+// Phase 2 keeps immediate Buy Now; Phase 3 will route it through customer checkout.
+const buyNowButton = document.getElementById('buyNowButton');
+buyNowButton.addEventListener('click', function () {
+    if (!selectedBook) return;
 
-    const quantityInCart = cartChecker.length;
+    const result = purchaseBooks([{
+        bookId: selectedBook.id,
+        quantity: 1,
+        price: selectedBook.price
+    }]);
 
-    if (selectedBook.inventory > 0 && quantityInCart >= selectedBook.inventory) {
-        const index = cart.findIndex(function (b) { return b.id === selectedBook.id; });
-        if (index !== -1) {
-            cart.splice(index, 1);
-            renderCart();
-        }
-        saveOrder([selectedBook])
-        selectedBook.inventory -= 1;
-        saveBooksToStorage(bookList)
-        renderCatalog()
-        updateBookModal(selectedBook)
-        showCartToast("\"" + selectedBook.title + "\" was purchased. One copy was removed from your cart to keep it within the remaining inventory.", "success");
+    refreshCustomerCatalog();
+    if (result.error) {
+        const cartResult = reconcileCart();
+        updateCartCount();
+        showCartToast([result.error].concat(cartResult.messages).join(' '), 'warning');
+        return;
     }
-    else if (selectedBook.inventory > 0) {
-        saveOrder([selectedBook])
-        selectedBook.inventory -= 1;
-        renderCart();
-        saveBooksToStorage(bookList)
-        renderCatalog()
-        updateBookModal(selectedBook)
-        showCartToast("\"" + selectedBook.title + "\" was purchased successfully.", "success");
+
+    updateCartAfterPurchase(result.order.items[0].title);
+});
+
+function refreshCustomerCatalog() {
+    bookList = loadBooksFromStorage();
+    renderCatalog();
+    applySearchFilter();
+
+    if (selectedBook) {
+        selectedBook = bookList.find(function (book) { return book.id === selectedBook.id; });
+        if (selectedBook && selectedBook.status === 'Active') {
+            updateBookModal(selectedBook);
+        } else {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('bookModal')).hide();
+            selectedBook = null;
+        }
+    }
+}
+
+// Reload after back/forward navigation, including pages restored from browser cache.
+window.addEventListener('pageshow', function () {
+    refreshCustomerCatalog();
+    const result = reconcileCart();
+    updateCartCount();
+    if (result.messages.length > 0) {
+        showCartToast(result.messages.join(' '), 'warning');
     }
 });
 
 renderCatalog();
+updateCartCount();

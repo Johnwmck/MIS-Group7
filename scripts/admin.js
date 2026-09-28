@@ -125,9 +125,10 @@ function applyTitleFilter() {
 const resetCatalogButton = document.getElementById("resetCatalogButton");
 
 resetCatalogButton.addEventListener("click", function () {
-    // Restore a clean demo state: seed catalog plus no historical sales data.
+    // Restore the seed catalog and clear sales and the persistent customer cart.
     localStorage.removeItem("savedBooks");
-    localStorage.removeItem("savedOrders")
+    localStorage.removeItem("savedOrders");
+    localStorage.removeItem("savedCart");
     location.reload();
 });
 

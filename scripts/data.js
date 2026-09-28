@@ -383,5 +383,171 @@ function saveOrdersToStorage(orders) {
     localStorage.setItem('savedOrders', JSON.stringify(orders));
 }
 
+// Cart entries store book IDs and quantities
+function loadCartFromStorage() {
+    return JSON.parse(localStorage.getItem('savedCart')) || [];
+}
 
+function saveCartToStorage(cartItems) {
+    localStorage.setItem('savedCart', JSON.stringify(cartItems));
+}
 
+function getCartItemCount(cartItems) {
+    let count = 0;
+
+    cartItems.forEach(function (item) {
+        count += item.quantity;
+    });
+
+    return count;
+}
+
+function getCartQuantityError(book, quantity) {
+    if (!book) {
+        return 'This book is no longer in the catalog.';
+    }
+
+    if(book.status !== 'Active' || isBookOutOfStock(book)) {
+        return 'This book is currently unavailable.';
+    }
+
+    if(!Number.isInteger(quantity) || quantity < 1) {
+        return 'Please choose a whole-number quantity of at least 1.';
+    }
+
+    if(quantity > book.inventory) {
+        return 'The requested quantity exceeds the available stock.';
+    }
+
+    return '';
+
+}
+
+function setCartQuantity(bookId, quantity) {
+    const books = loadBooksFromStorage();
+    const book = books.find(function (book) {
+        return book.id === bookId;
+    });
+
+    const error = getCartQuantityError(book, quantity);
+    if(error) {
+        return error;
+    }
+
+    const cartItems = loadCartFromStorage();
+    const existingItem = cartItems.find(function (item) {
+        return item.bookId === bookId;
+    });
+
+    if(existingItem) {
+        existingItem.quantity = quantity;
+    } else {
+        cartItems.push({ bookId: bookId, quantity: quantity});
+    }
+
+    saveCartToStorage(cartItems);
+    return '';
+}
+
+function reconcileCart() {
+    const books = loadBooksFromStorage();
+    const cartItems = loadCartFromStorage();
+    const updatedItems = [];
+    const messages = [];
+
+    cartItems.forEach(function (item) {
+        const book = books.find(function (book) {
+            return book.id === item.bookId;
+        });
+
+        if (!book) {
+            messages.push('A book was removed from your cart because it is no longer in the catalog.');
+            return;
+        }
+
+        if (book.status !== 'Active' || isBookOutOfStock(book)) {
+            messages.push(book.title + ' was removed because it is unavailable.');
+            return;
+        }
+
+        const quantity = Math.min(item.quantity, book.inventory);
+
+        if (quantity < item.quantity) {
+            messages.push(book.title + ': quantity reduced to ' + quantity + ' because stock changed.');
+        }
+
+        updatedItems.push({ bookId: item.bookId, quantity: quantity });
+    });
+
+    if (messages.length > 0) {
+        saveCartToStorage(updatedItems);
+    }
+
+    return { cartItems: updatedItems, messages: messages };
+}
+
+function removeCartItem(bookId) {
+    const cartItems = loadCartFromStorage();
+
+    const remainingItems = cartItems.filter(function (item) {
+        return item.bookId !== bookId;
+    });
+
+    saveCartToStorage(remainingItems);
+}
+
+// Both Phase 2 purchase entry points use this helper. Cart entries do not reserve stock.
+// The caller supplies the reviewed price so a price change requires another review.
+function purchaseBooks(selection) {
+    if (selection.length === 0) {
+        return { error: 'There are no books to purchase.' };
+    }
+
+    const books = loadBooksFromStorage();
+    const items = [];
+
+    // Validate every item before changing any inventory or saving an order.
+    for (const entry of selection) {
+        const book = books.find(function (book) { return book.id === entry.bookId; });
+        const error = getCartQuantityError(book, entry.quantity);
+        if (error) {
+            const label = book ? book.title : 'Book ' + entry.bookId;
+            return { error: label + ': ' + error };
+        }
+        if (items.some(function (item) { return item.bookId === entry.bookId; })) {
+            return { error: 'The selection contains a duplicate book. Please review your cart.' };
+        }
+        if (book.price !== entry.price) {
+            return { error: book.title + ': the price changed. Please review the current price.' };
+        }
+
+        items.push({
+            bookId: book.id,
+            title: book.title,
+            price: book.price,
+            quantity: entry.quantity
+        });
+    }
+
+    // Keep Sprint 1 order fields for reporting until Phase 3 adds customer information.
+    const order = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        items: items,
+        total: Math.round(items.reduce(function (sum, item) {
+            return sum + item.price * item.quantity;
+        }, 0) * 100) / 100
+    };
+    const orders = loadOrdersFromStorage();
+    orders.push(order);
+
+    items.forEach(function (item) {
+        const book = books.find(function (book) { return book.id === item.bookId; });
+        book.inventory -= item.quantity;
+    });
+
+    // Separate localStorage keys are a prototype limitation, not a server transaction.
+    saveBooksToStorage(books);
+    saveOrdersToStorage(orders);
+    return { error: '', order: order };
+}
