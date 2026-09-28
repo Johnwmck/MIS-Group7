@@ -1,7 +1,7 @@
 // Admin behavior: everything employee.js does, plus adding/editing/deleting
 // listings, editing price, toggling Active/Inactive status, and reporting stats.
 
-const LOW_STOCK_THRESHOLD = 3;
+const LOW_STOCK_THRESHOLD = 5;
 
 const bookList = loadBooksFromStorage();
 const inventoryTableBody = document.getElementById('inventoryTableBody');
@@ -143,6 +143,7 @@ const bookFormError = document.getElementById('bookFormError');
 
 const bookFormId = document.getElementById('bookFormId');
 const bookFormTitle = document.getElementById('bookFormTitle');
+const bookFormDescription = document.getElementById('bookFormDescription');
 const bookFormAuthor = document.getElementById('bookFormAuthor');
 const bookFormGenre = document.getElementById('bookFormGenre');
 const bookFormIsbn = document.getElementById('bookFormIsbn');
@@ -158,6 +159,7 @@ function openBookForm(book) {
         bookFormId.value = book.id;
         bookFormTitle.value = book.title;
         bookFormAuthor.value = book.author;
+        bookFormDescription.value = book.description;
         bookFormGenre.value = book.genre;
         bookFormIsbn.value = book.isbn;
         bookFormPrice.value = book.price;
@@ -179,6 +181,7 @@ document.getElementById('addBookButton').addEventListener('click', function () {
 document.getElementById('saveBookButton').addEventListener('click', function () {
     const title = bookFormTitle.value.trim();
     const author = bookFormAuthor.value.trim();
+    const description = bookFormDescription.value.trim();
     const genre = bookFormGenre.value.trim();
     const isbn = bookFormIsbn.value.trim();
     const price = parseFloat(bookFormPrice.value);
@@ -187,7 +190,7 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
     const status = bookFormStatus.value;
 
     if (!title || !author || !genre || !isbn || !image || isNaN(price) || price < 0 || isNaN(inventory) || inventory < 0) {
-        bookFormError.textContent = 'Please fill out every field with valid values.';
+        bookFormError.textContent = 'Please fill out every required field with valid values.';
         bookFormError.classList.remove('d-none');
         return;
     }
@@ -199,6 +202,7 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
         if (book) {
             book.title = title;
             book.author = author;
+            book.description = description;
             book.genre = genre;
             book.isbn = isbn;
             book.price = price;
@@ -209,7 +213,7 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
     } else {
         // Maximum ID + 1 remains unique even if an earlier book was deleted.
         const nextId = bookList.reduce(function (max, b) { return Math.max(max, b.id); }, 0) + 1;
-        bookList.push(new Book(nextId, isbn, title, author, genre, price, inventory, status, image));
+        bookList.push(new Book(nextId, isbn, title, author, genre, price, inventory, status, image, null, description));
     }
 
     saveBooksToStorage(bookList);
@@ -243,7 +247,9 @@ function renderStats() {
     }, 0);
 
     const lowStockBooks = bookList.filter(function (book) {
-        return !isBookOutOfStock(book) && book.inventory > 0 && book.inventory <= LOW_STOCK_THRESHOLD;
+        return book.status === 'Active' && (isBookOutOfStock(book) || book.inventory <= LOW_STOCK_THRESHOLD);
+    }).sort(function (a, b) {
+        return a.title.localeCompare(b.title);
     });
 
     const outOfStockBooks = bookList.filter(isBookOutOfStock);
@@ -253,7 +259,7 @@ function renderStats() {
     const revenue = orders.reduce(function (sum, order) { return sum + (order.total || 0); }, 0);
 
     const titleCounts = {};
-    // Combine quantities across every saved order before choosing the top five.
+    // Rank copies sold across all saved orders, regardless of current catalog status.
     orders.forEach(function (order) {
         (order.items || []).forEach(function (item) {
             titleCounts[item.title] = (titleCounts[item.title] || 0) + (item.quantity || 1);
@@ -271,7 +277,7 @@ function renderStats() {
     lowStockList.innerHTML = lowStockBooks.length
         ? lowStockBooks.map(function (book) {
             return `<li class="list-group-item d-flex justify-content-between">
-                <span>${book.title}</span><span class="text-muted">${book.inventory} left</span>
+                <span>${book.title}</span><span class="text-muted">${isBookOutOfStock(book) ? 'Out of stock · ' : ''}${book.inventory} left</span>
             </li>`;
         }).join('')
         : '<li class="list-group-item text-muted">No low-stock items.</li>';

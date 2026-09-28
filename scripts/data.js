@@ -5,7 +5,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2
 });
 
-function Book(id, isbn, title, author, genre, price, inventory, status, image, manualStockOverride = null) {
+function Book(id, isbn, title, author, genre, price, inventory, status, image, manualStockOverride = null, description = "") {
     this.id = id;
     this.isbn = isbn;
     this.title = title;
@@ -15,6 +15,7 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image, m
     this.inventory = inventory;
     this.status = status;
     this.image = image;
+    this.description = description;
     // null = automatic (based on inventory), true = forced out of stock
     this.manualStockOverride = manualStockOverride;
 }
@@ -22,6 +23,16 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image, m
 function isBookOutOfStock(book) {
     // Inventory reaching zero always wins; the manual override can only make an otherwise available book unavailable.
     return book.manualStockOverride === true || book.inventory <= 0;
+}
+
+// Customer display only; internal inventory tables continue to show exact counts.
+const CUSTOMER_LOW_STOCK_THRESHOLD = 5;
+
+function getCustomerAvailability(book) {
+    if (book.status !== 'Active') return 'Unavailable';
+    if (isBookOutOfStock(book)) return 'Out of stock';
+    if (book.inventory <= CUSTOMER_LOW_STOCK_THRESHOLD) return 'Only ' + book.inventory + ' left';
+    return 'In stock';
 }
 
 // Seed data for books
@@ -34,7 +45,9 @@ const book1 = new Book(
     14.99,
     12,
     "Active",
-    "https://www.publicdomainpictures.net/pictures/450000/velka/to-kill-a-mocking-bird.jpg"
+    "https://www.publicdomainpictures.net/pictures/450000/velka/to-kill-a-mocking-bird.jpg",
+    null,
+    "A young girl observes courage and injustice as her father defends a Black man accused of a crime in a small Alabama town."
 );
 
 const book2 = new Book(
@@ -46,7 +59,9 @@ const book2 = new Book(
     12.99,
     8,
     "Active",
-    "https://upload.wikimedia.org/wikipedia/commons/7/7a/The_Great_Gatsby_Cover_1925_Retouched.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"
+    "https://upload.wikimedia.org/wikipedia/commons/7/7a/The_Great_Gatsby_Cover_1925_Retouched.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original",
+    null,
+    "A mysterious millionaire pursues a lost love amid the wealth and social ambition of the Jazz Age."
 );
 
 const book3 = new Book(
@@ -58,7 +73,9 @@ const book3 = new Book(
     13.99,
     15,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLizTdo9rzGAFXg5k38NcZuRCAQOhZwQM0uumd1PWf8Q&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLizTdo9rzGAFXg5k38NcZuRCAQOhZwQM0uumd1PWf8Q&s=10",
+    null,
+    "A man living under a totalitarian government begins to question a world ruled by surveillance and control."
 );
 
 const book4 = new Book(
@@ -70,7 +87,9 @@ const book4 = new Book(
     11.99,
     6,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqEvzk6pwMNEwGhN_25NUNCxDEtUO7V-D3cNReQql-5g&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQqEvzk6pwMNEwGhN_25NUNCxDEtUO7V-D3cNReQql-5g&s=10",
+    null,
+    "Elizabeth Bennet and Mr. Darcy navigate first impressions, family expectations, and their growing affection."
 );
 
 const book5 = new Book(
@@ -82,7 +101,9 @@ const book5 = new Book(
     16.99,
     20,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRW3XBTLpA1w-lUnSutCjB7uew8ya-IZPyMu0i1vaOZQA&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRW3XBTLpA1w-lUnSutCjB7uew8ya-IZPyMu0i1vaOZQA&s=10",
+    null,
+    "Bilbo Baggins leaves his quiet home to join a company of dwarves on a dangerous quest to reclaim their treasure."
 );
 
 const book6 = new Book(
@@ -94,7 +115,9 @@ const book6 = new Book(
     17.99,
     4,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS_eDx1iq7N2pKSvgAM-uxmMSAQFNOdCW0Nb1F68qPHkw&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS_eDx1iq7N2pKSvgAM-uxmMSAQFNOdCW0Nb1F68qPHkw&s=10",
+    null,
+    "A family spends the winter caring for an isolated hotel, where a sinister presence threatens their safety."
 );
 
 const book7 = new Book(
@@ -106,7 +129,9 @@ const book7 = new Book(
     19.99,
     9,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTyymOkEE0K_RDiM-qStT10_qzHXM__di2y4JRcuktPBQ&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTyymOkEE0K_RDiM-qStT10_qzHXM__di2y4JRcuktPBQ&s=10",
+    null,
+    "An exploration of human history, tracing how shared ideas and changing societies shaped our species."
 );
 
 const book8 = new Book(
@@ -118,7 +143,9 @@ const book8 = new Book(
     21.99,
     0,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQOXs0ayvY49350KMpPXOFymDq580_W_18Enr41UMTlKw&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQOXs0ayvY49350KMpPXOFymDq580_W_18Enr41UMTlKw&s=10",
+    null,
+    "Childhood friends confront a terrifying presence that haunts their hometown and returns to threaten them as adults."
 );
 
 const book9 = new Book(
@@ -130,7 +157,9 @@ const book9 = new Book(
     15.99,
     11,
     "Active",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7yDUFL36bi4f_ibWRtLTf6gyQzs7-IpltzRANajT6ew&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7yDUFL36bi4f_ibWRtLTf6gyQzs7-IpltzRANajT6ew&s=10",
+    null,
+    "After Earth is destroyed, Arthur Dent finds himself on an absurd adventure across the galaxy."
 );
 
 const book10 = new Book(
@@ -142,7 +171,9 @@ const book10 = new Book(
     18.99,
     7,
     "Inactive",
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrVJQTwiF5IaW_y4EmdOaCpBgWAvWy5U93LHtpMrBX_A&s=10"
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQrVJQTwiF5IaW_y4EmdOaCpBgWAvWy5U93LHtpMrBX_A&s=10",
+    null,
+    "The story of Wilbur and Orville Wright and the persistence behind their pioneering work in powered flight."
 );
 
 const book11 = new Book(
@@ -154,7 +185,9 @@ const book11 = new Book(
     13.99,
     10,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780060850524-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780060850524-L.jpg",
+    null,
+    "A tightly controlled future society trades personal freedom for engineered happiness and social stability."
 );
 
 const book12 = new Book(
@@ -166,7 +199,9 @@ const book12 = new Book(
     12.99,
     5,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9781451673319-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9781451673319-L.jpg",
+    null,
+    "A fireman tasked with burning books begins to question his role and the society that forbids reading."
 );
 
 const book13 = new Book(
@@ -178,7 +213,9 @@ const book13 = new Book(
     14.99,
     0,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780316769488-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780316769488-L.jpg",
+    null,
+    "Holden Caulfield wanders New York City while struggling with grief, growing up, and the adult world."
 );
 
 const book14 = new Book(
@@ -190,7 +227,9 @@ const book14 = new Book(
     11.99,
     6,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780142437247-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780142437247-L.jpg",
+    null,
+    "A sailor joins a whaling voyage led by Captain Ahab, whose obsession with a white whale puts the crew in danger."
 );
 
 const book15 = new Book(
@@ -202,7 +241,9 @@ const book15 = new Book(
     18.99,
     3,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9781400079988-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9781400079988-L.jpg",
+    null,
+    "The lives of several Russian families intertwine through love, loss, and the upheaval of the Napoleonic wars."
 );
 
 const book16 = new Book(
@@ -214,7 +255,9 @@ const book16 = new Book(
     16.99,
     14,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780062315007-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780062315007-L.jpg",
+    null,
+    "A young shepherd follows a dream of treasure and discovers lessons about purpose and possibility along the way."
 );
 
 const book17 = new Book(
@@ -226,7 +269,9 @@ const book17 = new Book(
     9.99,
     8,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg",
+    null,
+    "On a desert planet that supplies a vital resource, a young heir becomes caught in a struggle for power and survival."
 );
 
 const book18 = new Book(
@@ -238,7 +283,9 @@ const book18 = new Book(
     8.99,
     25,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780439708180-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780439708180-L.jpg",
+    null,
+    "A boy discovers that he is a wizard and enters a school where friendship, magic, and hidden dangers await."
 );
 
 const book19 = new Book(
@@ -250,7 +297,9 @@ const book19 = new Book(
     10.99,
     0,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780307474278-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780307474278-L.jpg",
+    null,
+    "A murder investigation sends a symbologist and a cryptologist through a trail of art, codes, and historical mysteries."
 );
 
 const book20 = new Book(
@@ -262,7 +311,9 @@ const book20 = new Book(
     15.99,
     9,
     "Active",
-    "https://covers.openlibrary.org/b/isbn/9780399590504-L.jpg"
+    "https://covers.openlibrary.org/b/isbn/9780399590504-L.jpg",
+    null,
+    "A memoir about growing up in an isolated family and pursuing an education that opens a different world."
 );
 
 const initialBooks = [
@@ -298,6 +349,15 @@ function loadBooksFromStorage() {
     // Older cached data (saved before prices were stored as plain numbers) may have `price` saved as a formatted string like "$14.99". Coerce it back to a number so currencyFormatter doesn't produce "$NaN".
     let neededFix = false;
     books.forEach(function (book) {
+        // Match identity as well as ID: Admin can reuse IDs after deleting books.
+        // Preserve existing descriptions, including an intentionally empty string.
+        if (typeof book.description !== 'string') {
+            const seed = initialBooks.find(function (candidate) {
+                return candidate.id === book.id && candidate.isbn === book.isbn && candidate.title === book.title;
+            });
+            book.description = seed ? seed.description : '';
+            neededFix = true;
+        }
         if (typeof book.price !== 'number') {
             book.price = parseFloat(String(book.price).replace(/[^0-9.]/g, ''));
             neededFix = true;

@@ -27,6 +27,7 @@ function createBookCard(book) {
                 <h5 class="card-title">${book.title}</h5>
                 <p class="card-text mb-1">${book.author}</p>
                 <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
+                <p class="card-text small">${getCustomerAvailability(book)}</p>
             </div>
         </div>
     `;
@@ -46,10 +47,11 @@ function updateBookModal(book) {
     document.getElementById('modalBookAuthor').textContent = "Author: " + book.author;
     document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
     document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
+    document.getElementById('modalBookDescription').textContent = book.description || 'No description available yet.';
 
     const bookOutOfStock = isBookOutOfStock(book);
     const inventoryText = document.getElementById('modalBookInventory');
-    inventoryText.textContent = bookOutOfStock ? "Out of stock" : "In stock: " + book.inventory;
+    inventoryText.textContent = getCustomerAvailability(book);
     inventoryText.classList.toggle('text-danger', bookOutOfStock);
 
     document.getElementById('addToCartButton').disabled = bookOutOfStock;
