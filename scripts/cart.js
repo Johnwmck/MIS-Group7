@@ -5,14 +5,6 @@ const cartContents = document.getElementById('cartContents');
 const cartTableBody = document.getElementById('cartTableBody');
 const cartTotal = document.getElementById('cartTotal');
 const checkoutButton = document.getElementById('checkoutButton');
-const checkoutConfirmModalEl = document.getElementById('checkoutConfirmModal');
-const checkoutConfirmModal = new bootstrap.Modal(checkoutConfirmModalEl);
-const checkoutSummaryItems = document.getElementById('checkoutSummaryItems');
-const checkoutSummaryTotal = document.getElementById('checkoutSummaryTotal');
-const confirmCheckoutButton = document.getElementById('confirmCheckoutButton');
-
-// Only this page's current review; the persistent cart remains the source of quantities.
-let checkoutSelection = [];
 
 function showCartMessage(message, success = false) {
     cartMessages.textContent = message;
@@ -161,78 +153,43 @@ function createQuantityControls(item, book) {
 
 // Do not silently replace a custom quantity that the customer has not applied yet.
 checkoutButton.addEventListener('click', function () {
-    const hasUnappliedQuantity = Array.from(cartTableBody.querySelectorAll('input')).some(function (input) {
+    const hasUnappliedQuantity = Array.from(
+        cartTableBody.querySelectorAll('input')
+    ).some(function (input) {
         return input.valueAsNumber !== Number(input.dataset.savedQuantity);
     });
+
     if (hasUnappliedQuantity) {
-        showCartMessage('Press Enter to apply your typed quantity before checking out.');
+        showCartMessage(
+            'Press Enter to apply your typed quantity before checking out.'
+        );
         return;
     }
 
     const state = renderCart();
-    if (state.cartItems.length === 0 || state.messages.length > 0) return;
 
-    checkoutSelection = state.cartItems.map(function (item) {
-        const book = state.books.find(function (book) { return book.id === item.bookId; });
-        return { bookId: item.bookId, quantity: item.quantity, price: book.price };
-    });
-
-    checkoutSummaryItems.innerHTML = '';
-    let total = 0;
-    checkoutSelection.forEach(function (item) {
-        const book = state.books.find(function (book) { return book.id === item.bookId; });
-        const row = document.createElement('div');
-        row.className = 'd-flex justify-content-between gap-3 mb-2';
-        const title = document.createElement('span');
-        title.textContent = book.title + ' × ' + item.quantity;
-        const subtotal = document.createElement('span');
-        subtotal.textContent = currencyFormatter.format(item.price * item.quantity);
-        row.append(title, subtotal);
-        checkoutSummaryItems.appendChild(row);
-        total += item.price * item.quantity;
-    });
-    checkoutSummaryTotal.textContent = 'Total: ' + currencyFormatter.format(total);
-    confirmCheckoutButton.disabled = false;
-    checkoutConfirmModal.show();
-});
-
-confirmCheckoutButton.addEventListener('click', function () {
-    if (checkoutSelection.length === 0) return;
-    confirmCheckoutButton.disabled = true;
-
-    // Another page may have changed the cart while this review was open.
-    const currentCart = loadCartFromStorage();
-    const cartMatches = currentCart.length === checkoutSelection.length && checkoutSelection.every(function (entry) {
-        return currentCart.some(function (item) {
-            return item.bookId === entry.bookId && item.quantity === entry.quantity;
-        });
-    });
-    const result = cartMatches
-        ? purchaseBooks(checkoutSelection)
-        : { error: 'Your cart changed during review. Please review it again.' };
-
-    // Consume the review on either outcome so a second click cannot repeat a purchase.
-    checkoutSelection = [];
-    checkoutConfirmModal.hide();
-    if (result.error) {
-        renderCart([result.error]);
+    if (state.cartItems.length === 0 || state.messages.length > 0) {
         return;
     }
 
-    saveCartToStorage([]);
-    renderCart();
-    showCartMessage('Order ' + result.order.id + ' placed! Thank you for shopping with Team 7 Books.', true);
-});
+    const checkoutItems = state.cartItems.map(function (item) {
+        const book = state.books.find(function (book) {
+            return book.id === item.bookId;
+        });
 
-checkoutConfirmModalEl.addEventListener('hidden.bs.modal', function () {
-    checkoutSelection = [];
-    confirmCheckoutButton.disabled = true;
+        return {
+            bookId: item.bookId,
+            quantity: item.quantity,
+            price: book.price
+        };
+    });
+
+    saveCheckoutState('cart', checkoutItems);
+    window.location.href = 'checkout.html';
 });
 
 window.addEventListener('pageshow', function (event) {
     if (event.persisted) {
-        checkoutSelection = [];
-        checkoutConfirmModal.hide();
         renderCart();
     }
 });

@@ -383,6 +383,36 @@ function saveOrdersToStorage(orders) {
     localStorage.setItem('savedOrders', JSON.stringify(orders));
 }
 
+const CHECKOUT_STORAGE_KEY = 'checkoutState';
+
+function saveCheckoutState(mode, items) {
+    const checkoutState = {
+        mode: mode,
+        items: items.map(function (item) {
+            return {
+                bookId: item.bookId,
+                quantity: item.quantity,
+                price: item.price
+            };
+        }),
+        createdAt: new Date().toISOString()
+    };
+
+    sessionStorage.setItem(
+        CHECKOUT_STORAGE_KEY,
+        JSON.stringify(checkoutState)
+    );
+}
+
+function loadCheckoutState() {
+    const savedState = sessionStorage.getItem(CHECKOUT_STORAGE_KEY);
+    return savedState ? JSON.parse(savedState) : null;
+}
+
+function clearCheckoutState() {
+    sessionStorage.removeItem(CHECKOUT_STORAGE_KEY);
+}
+
 // Cart entries store book IDs and quantities
 function loadCartFromStorage() {
     return JSON.parse(localStorage.getItem('savedCart')) || [];
@@ -407,15 +437,15 @@ function getCartQuantityError(book, quantity) {
         return 'This book is no longer in the catalog.';
     }
 
-    if(book.status !== 'Active' || isBookOutOfStock(book)) {
+    if (book.status !== 'Active' || isBookOutOfStock(book)) {
         return 'This book is currently unavailable.';
     }
 
-    if(!Number.isInteger(quantity) || quantity < 1) {
+    if (!Number.isInteger(quantity) || quantity < 1) {
         return 'Please choose a whole-number quantity of at least 1.';
     }
 
-    if(quantity > book.inventory) {
+    if (quantity > book.inventory) {
         return 'The requested quantity exceeds the available stock.';
     }
 
@@ -430,7 +460,7 @@ function setCartQuantity(bookId, quantity) {
     });
 
     const error = getCartQuantityError(book, quantity);
-    if(error) {
+    if (error) {
         return error;
     }
 
@@ -439,10 +469,10 @@ function setCartQuantity(bookId, quantity) {
         return item.bookId === bookId;
     });
 
-    if(existingItem) {
+    if (existingItem) {
         existingItem.quantity = quantity;
     } else {
-        cartItems.push({ bookId: bookId, quantity: quantity});
+        cartItems.push({ bookId: bookId, quantity: quantity });
     }
 
     saveCartToStorage(cartItems);
@@ -496,11 +526,46 @@ function removeCartItem(bookId) {
     saveCartToStorage(remainingItems);
 }
 
-// Both Phase 2 purchase entry points use this helper. Cart entries do not reserve stock.
-// The caller supplies the reviewed price so a price change requires another review.
-function purchaseBooks(selection) {
-    if (selection.length === 0) {
+function getCustomerInformationError(customerInfo) {
+    if (!customerInfo || typeof customerInfo.name !== 'string') {
+        return 'Customer name is required.';
+    }
+
+    if (typeof customerInfo.email !== 'string') {
+        return 'Customer email is required.';
+    }
+
+    const name = customerInfo.name.trim();
+    const email = customerInfo.email.trim();
+
+    if (!name) {
+        return 'Customer name is required.';
+    }
+
+    if (!email) {
+        return 'Customer email is required.';
+    }
+
+    const basicEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!basicEmailPattern.test(email)) {
+        return 'Please enter a valid email address.';
+    }
+
+    return '';
+}
+
+// Authoritative checkout transaction. Validate the complete request before
+// changing inventory or saving an order.
+function purchaseBooks(selection, customerInfo) {
+    if (!Array.isArray(selection) || selection.length === 0) {
         return { error: 'There are no books to purchase.' };
+    }
+
+    const customerError = getCustomerInformationError(customerInfo);
+
+    if (customerError) {
+        return { error: customerError };
     }
 
     const books = loadBooksFromStorage();
@@ -508,6 +573,12 @@ function purchaseBooks(selection) {
 
     // Validate every item before changing any inventory or saving an order.
     for (const entry of selection) {
+        if (!entry || !Number.isInteger(entry.bookId)) {
+            return {
+                error: 'The checkout selection contains an invalid book.'
+            };
+        }
+
         const book = books.find(function (book) { return book.id === entry.bookId; });
         const error = getCartQuantityError(book, entry.quantity);
         if (error) {
@@ -529,10 +600,12 @@ function purchaseBooks(selection) {
         });
     }
 
-    // Keep Sprint 1 order fields for reporting until Phase 3 adds customer information.
+    // Preserve the Sprint 1 reporting fields while expanding the order snapshot.
     const order = {
         id: Date.now(),
         date: new Date().toISOString(),
+        customerName: customerInfo.name.trim(),
+        customerEmail: customerInfo.email.trim(),
         items: items,
         total: Math.round(items.reduce(function (sum, item) {
             return sum + item.price * item.quantity;

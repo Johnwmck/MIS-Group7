@@ -118,19 +118,6 @@ function updateCartCount() {
         getCartItemCount(cartItems);
 }
 
-function updateCartAfterPurchase(bookTitle) {
-    const result = reconcileCart();
-    updateCartCount();
-
-    let message = '"' + bookTitle + '" was purchased successfully.';
-
-    if(result.messages.length > 0) {
-        message += ' ' + result.messages.join(' ');
-    }
-
-    showCartToast(message, 'success');
-}
-
 function addBookToCart(bookId) {
     const cartItems = loadCartFromStorage();
     const existingItem = cartItems.find(function (item) {
@@ -152,31 +139,40 @@ function addBookToCart(bookId) {
 const addToCartButton = document.getElementById("addToCartButton");
 
 addToCartButton.addEventListener("click", function () {
-    if(selectedBook) {
+    if (selectedBook) {
         addBookToCart(selectedBook.id);
     }
 });
 
-// Phase 2 keeps immediate Buy Now; Phase 3 will route it through customer checkout.
 const buyNowButton = document.getElementById('buyNowButton');
+
 buyNowButton.addEventListener('click', function () {
-    if (!selectedBook) return;
-
-    const result = purchaseBooks([{
-        bookId: selectedBook.id,
-        quantity: 1,
-        price: selectedBook.price
-    }]);
-
-    refreshCustomerCatalog();
-    if (result.error) {
-        const cartResult = reconcileCart();
-        updateCartCount();
-        showCartToast([result.error].concat(cartResult.messages).join(' '), 'warning');
+    if (!selectedBook) {
         return;
     }
 
-    updateCartAfterPurchase(result.order.items[0].title);
+    // Reload the current catalog state rather than relying on the copy that
+    // was selected when the modal originally opened.
+    const books = loadBooksFromStorage();
+    const currentBook = books.find(function (book) {
+        return book.id === selectedBook.id;
+    });
+
+    const error = getCartQuantityError(currentBook, 1);
+
+    if (error) {
+        refreshCustomerCatalog();
+        showCartToast(error, 'warning');
+        return;
+    }
+
+    saveCheckoutState('buyNow', [{
+        bookId: currentBook.id,
+        quantity: 1,
+        price: currentBook.price
+    }]);
+
+    window.location.href = 'checkout.html';
 });
 
 function refreshCustomerCatalog() {
