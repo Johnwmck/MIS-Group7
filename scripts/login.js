@@ -1,7 +1,13 @@
+// Internal login form and role-based routing.
+
+// --- Page DOM references ---
+
 const loginForm = document.getElementById('loginForm');
 const usernameInput = document.getElementById('usernameInput');
 const passwordInput = document.getElementById('passwordInput');
 const loginError = document.getElementById('loginError');
+
+// --- Existing-session routing ---
 
 const existingSession = getValidatedInternalSession();
 
@@ -10,6 +16,8 @@ if (existingSession) {
         getInternalHomePage(existingSession.role)
     );
 }
+
+// --- Login submission ---
 
 loginForm.addEventListener('submit', function (event) {
     event.preventDefault();

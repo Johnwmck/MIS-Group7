@@ -1,3 +1,7 @@
+// Customer cart display, quantity management, and checkout routing.
+
+// --- Page state and DOM references ---
+
 const cartCount = document.getElementById('cartCount');
 const cartMessages = document.getElementById('cartMessages');
 const cartEmptyMessage = document.getElementById('cartEmptyMessage');
@@ -5,6 +9,8 @@ const cartContents = document.getElementById('cartContents');
 const cartTableBody = document.getElementById('cartTableBody');
 const cartTotal = document.getElementById('cartTotal');
 const checkoutButton = document.getElementById('checkoutButton');
+
+// --- Cart feedback and rendering ---
 
 function showCartMessage(message, success = false) {
     cartMessages.textContent = message;
@@ -97,12 +103,14 @@ function renderCart(extraMessages = []) {
     return { cartItems: cartItems, books: books, messages: result.messages };
 }
 
+// --- Quantity controls ---
+
 function createQuantityControls(item, book) {
     const container = document.createElement('div');
 
     container.innerHTML = `
         <div class="input-group input-group-sm flex-nowrap">
-            <button type="button" class="btn btn-outline-primary">−</button>
+            <button type="button" class="btn btn-outline-primary">&minus;</button>
             <input type="number" class="form-control" min="1" step="1"
                 style="min-width: 75px;">
             <button type="button" class="btn btn-outline-primary">+</button>
@@ -151,6 +159,8 @@ function createQuantityControls(item, book) {
     return container;
 }
 
+// --- Checkout routing ---
+
 // Do not silently replace a custom quantity that the customer has not applied yet.
 checkoutButton.addEventListener('click', function () {
     const hasUnappliedQuantity = Array.from(
@@ -193,5 +203,7 @@ window.addEventListener('pageshow', function (event) {
         renderCart();
     }
 });
+
+// --- Page initialization ---
 
 renderCart();

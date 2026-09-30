@@ -1,3 +1,7 @@
+// Shared checkout page for saved-cart and Buy Now purchases.
+
+// --- Page state and DOM references ---
+
 const checkoutBackLink = document.getElementById('checkoutBackLink');
 const checkoutMessage = document.getElementById('checkoutMessage');
 const checkoutContent = document.getElementById('checkoutContent');
@@ -13,6 +17,8 @@ const confirmationOrderId = document.getElementById('confirmationOrderId');
 const confirmationTotal = document.getElementById('confirmationTotal');
 
 let checkoutState = loadCheckoutState();
+
+// --- Checkout-state validation and messages ---
 
 function showCheckoutMessage(message) {
     checkoutMessage.textContent = message;
@@ -67,6 +73,8 @@ function invalidateCheckout(message) {
     showCheckoutMessage(message);
 }
 
+// --- Checkout review rendering ---
+
 function renderCheckoutReview() {
     checkoutContent.classList.add('d-none');
     orderConfirmation.classList.add('d-none');
@@ -94,7 +102,8 @@ function renderCheckoutReview() {
 
         if (!book) {
             showCheckoutMessage(
-                'A book in this checkout is no longer in the catalog. Please return and review your selection.'
+                'A book in this checkout is no longer in the catalog. ' +
+                'Please return and review your selection.'
             );
             return;
         }
@@ -135,6 +144,8 @@ function renderCheckoutReview() {
     placeOrderButton.disabled = false;
 }
 
+// --- Final purchase submission ---
+
 checkoutForm.addEventListener('submit', function (event) {
     event.preventDefault();
 
@@ -157,8 +168,14 @@ checkoutForm.addEventListener('submit', function (event) {
         return;
     }
 
-    if (checkoutState.mode === 'cart' && !cartMatchesCheckout(checkoutState.items)) {
-        invalidateCheckout('Your cart changed during checkout. Please return to your cart and review it again.');
+    if (
+        checkoutState.mode === 'cart' &&
+        !cartMatchesCheckout(checkoutState.items)
+    ) {
+        invalidateCheckout(
+            'Your cart changed during checkout. ' +
+            'Please return to your cart and review it again.'
+        );
         return;
     }
 
@@ -202,6 +219,8 @@ checkoutForm.addEventListener('submit', function (event) {
         showCheckoutMessage('');
     }
 });
+
+// --- Page initialization and history restoration ---
 
 renderCheckoutReview();
 

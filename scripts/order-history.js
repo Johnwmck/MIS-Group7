@@ -1,9 +1,15 @@
+// Shared Employee/Admin order history, search, and CSV export.
+
+// --- Page state and DOM references ---
+
 const orderHistoryList = document.getElementById('orderHistoryList');
 const orderHistoryEmpty = document.getElementById('orderHistoryEmpty');
 const orderSearchInput = document.getElementById('orderSearchInput');
 const orderExportButton = document.getElementById('orderExportButton');
 
 let displayedOrders = [];
+
+// --- Order display formatting ---
 
 function formatOrderDate(dateValue) {
     const date = new Date(dateValue);
@@ -97,6 +103,8 @@ function createOrderCard(order) {
     return card;
 }
 
+// --- Order searching ---
+
 function getMatchingOrders(orders, query) {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -130,8 +138,9 @@ function getMatchingOrders(orders, query) {
             customerEmailMatches ||
             bookTitleMatches;
     });
-
 }
+
+// --- CSV transformation and download formatting ---
 
 function escapeCsvValue(value) {
     const stringValue = String(value ?? '');
@@ -148,10 +157,12 @@ function preserveExcelText(value) {
     }
 
     const escapedValue = stringValue.replace(/"/g, '""');
-    return '="' + escapedValue + '"'
+    return '="' + escapedValue + '"';
 }
 
 function buildOrderCsv(orders) {
+    // Flatten each nested order item into its own spreadsheet row while
+    // repeating the order and customer columns for filtering in Excel.
     const rows = [
         [
             'Order ID',
@@ -173,9 +184,11 @@ function buildOrderCsv(orders) {
             : [null];
 
         items.forEach(function (item) {
-            const quantity = item && Number.isInteger(item.quantity)
-                ? item.quantity
-                : [null];
+            const quantity = !item
+                ? ''
+                : Number.isInteger(item.quantity) && item.quantity > 0
+                    ? item.quantity
+                    : 1;
 
             const unitPrice = item && typeof item.price === 'number'
                 ? item.price
@@ -207,6 +220,8 @@ function buildOrderCsv(orders) {
         .join('\r\n');
 }
 
+// --- Order-history rendering ---
+
 function renderOrderHistory(orders) {
     displayedOrders = orders;
     orderHistoryList.innerHTML = '';
@@ -230,6 +245,8 @@ const orderHistory = loadOrdersFromStorage()
     .sort(function (a, b) {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
+
+// --- Page events and initialization ---
 
 orderSearchInput.addEventListener('input', function () {
     const matchingOrders = getMatchingOrders(

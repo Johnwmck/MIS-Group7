@@ -1,4 +1,6 @@
-// Customer display, search, filter, etc. Updating what the customer sees.
+// Customer catalog browsing, cart entry points, and checkout routing.
+
+// --- Page state and primary DOM references ---
 
 const bookContainer = document.getElementById('bookContainer');
 const customerBestSellers = document.getElementById('customerBestSellers');
@@ -8,6 +10,8 @@ const modalBookQuantity = document.getElementById('modalBookQuantity');
 let bookList = loadBooksFromStorage();
 
 let selectedBook = null;
+
+// --- Book cards and detail modal ---
 
 function openBookDetails(book) {
     selectedBook = book;
@@ -19,10 +23,7 @@ function openBookDetails(book) {
 
 function createBookCard(book) {
     const col = document.createElement('div');
-    col.className = "col";
-    col.dataset.title = book.title.toLowerCase();
-    col.dataset.author = book.author.toLowerCase();
-    col.dataset.genre = book.genre.toLowerCase();
+    col.className = 'col';
 
     const outOfStock = isBookOutOfStock(book);
 
@@ -30,7 +31,9 @@ function createBookCard(book) {
         <div class="card h-100${outOfStock ? ' out-of-stock' : ''}" role="button">
             <div class="position-relative">
                 <img src="${book.image}" class="card-img-top" alt="${book.title}">
-                ${outOfStock ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>' : ''}
+                ${outOfStock
+            ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>'
+            : ''}
             </div>
             <div class="card-body">
                 <h5 class="card-title">${book.title}</h5>
@@ -67,10 +70,14 @@ function updateBookModal(book) {
     document.getElementById('modalBookTitle').textContent = book.title;
     document.getElementById('modalBookImage').src = book.image;
     document.getElementById('modalBookImage').alt = book.title;
-    document.getElementById('modalBookAuthor').textContent = "Author: " + book.author;
-    document.getElementById('modalBookGenre').textContent = "Genre: " + book.genre;
-    document.getElementById('modalBookPrice').textContent = "Price: " + (currencyFormatter.format(book.price));
-    document.getElementById('modalBookDescription').textContent = book.description || 'No description available yet.';
+    document.getElementById('modalBookAuthor').textContent =
+        'Author: ' + book.author;
+    document.getElementById('modalBookGenre').textContent =
+        'Genre: ' + book.genre;
+    document.getElementById('modalBookPrice').textContent =
+        'Price: ' + currencyFormatter.format(book.price);
+    document.getElementById('modalBookDescription').textContent =
+        book.description || 'No description available yet.';
 
     const bookOutOfStock = book.status !== 'Active' || isBookOutOfStock(book);
     modalBookQuantity.value = 1;
@@ -83,6 +90,8 @@ function updateBookModal(book) {
     document.getElementById('addToCartButton').disabled = bookOutOfStock;
     document.getElementById('buyNowButton').disabled = bookOutOfStock;
 }
+
+// --- Catalog search, filtering, and sorting ---
 
 const searchFieldSelect = document.getElementById('searchFieldSelect');
 const searchInput = document.getElementById('searchInput');
@@ -170,9 +179,11 @@ function getVisibleCatalogBooks() {
     return visibleBooks;
 }
 
+// --- Customer Best Sellers ---
+
 function renderCustomerBestSellers() {
     const orders = loadOrdersFromStorage();
-    const rankedItems = getBestSellingItems(orders, 5);
+    const rankedItems = getBestSellingItems(orders);
 
     const recommendations = rankedItems
         .map(function (item) {
@@ -201,7 +212,8 @@ function renderCustomerBestSellers() {
         })
         .filter(function (recommendation) {
             return recommendation !== null;
-        });
+        })
+        .slice(0, 5);
 
     customerBestSellers.innerHTML = '';
 
@@ -236,6 +248,8 @@ function renderCustomerBestSellers() {
     );
 }
 
+// --- Catalog rendering and filter events ---
+
 function renderCatalog() {
     const visibleBooks = getVisibleCatalogBooks();
 
@@ -256,14 +270,17 @@ searchFieldSelect.addEventListener('change', renderCatalog);
 genreFilterSelect.addEventListener('change', renderCatalog);
 sortSelect.addEventListener('change', renderCatalog);
 
+// --- Cart feedback and Add to Cart ---
 
-const cartToastEl = document.getElementById("cartToast");
-const cartToastBody = document.getElementById("cartToastBody");
-const cartToast = new bootstrap.Toast(cartToastEl);
+const cartToastElement = document.getElementById('cartToast');
+const cartToastBody = document.getElementById('cartToastBody');
+const cartToast = new bootstrap.Toast(cartToastElement);
 
 function showCartToast(message, variant) {
-    cartToastEl.classList.remove("text-bg-warning", "text-bg-success");
-    cartToastEl.classList.add(variant === "success" ? "text-bg-success" : "text-bg-warning");
+    cartToastElement.classList.remove('text-bg-warning', 'text-bg-success');
+    cartToastElement.classList.add(
+        variant === 'success' ? 'text-bg-success' : 'text-bg-warning'
+    );
     cartToastBody.textContent = message;
     cartToast.show();
 }
@@ -297,7 +314,7 @@ function addBookToCart(bookId, quantityToAdd = 1) {
     showCartToast(message, 'success');
 }
 
-const addToCartButton = document.getElementById("addToCartButton");
+const addToCartButton = document.getElementById('addToCartButton');
 
 addToCartButton.addEventListener('click', function () {
     if (!selectedBook) {
@@ -309,6 +326,8 @@ addToCartButton.addEventListener('click', function () {
         modalBookQuantity.valueAsNumber
     );
 });
+
+// --- Buy Now checkout routing ---
 
 const buyNowButton = document.getElementById('buyNowButton');
 
@@ -324,7 +343,8 @@ buyNowButton.addEventListener('click', function () {
         return book.id === selectedBook.id;
     });
 
-    const error = getCartQuantityError(currentBook, 1);
+    const quantity = modalBookQuantity.valueAsNumber;
+    const error = getCartQuantityError(currentBook, quantity);
 
     if (error) {
         refreshCustomerCatalog();
@@ -334,12 +354,14 @@ buyNowButton.addEventListener('click', function () {
 
     saveCheckoutState('buyNow', [{
         bookId: currentBook.id,
-        quantity: 1,
+        quantity: quantity,
         price: currentBook.price
     }]);
 
     window.location.href = 'checkout.html';
 });
+
+// --- Page refresh and initialization ---
 
 function refreshCustomerCatalog() {
     bookList = loadBooksFromStorage();

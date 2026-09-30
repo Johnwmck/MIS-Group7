@@ -1,3 +1,7 @@
+// Shared internal-page routing, session validation, and authorization.
+
+// --- Role routing and session validation ---
+
 function getInternalHomePage(role) {
     return role === 'Admin'
         ? 'admin.html'
@@ -13,6 +17,8 @@ function getValidatedInternalSession() {
 
     const users = loadInternalUsersFromStorage();
 
+    // Re-check persistent account state so a disabled or deleted user cannot
+    // keep using an older session.
     const currentUser = users.find(function (user) {
         return user.id === session.userId &&
             user.username === session.username &&
@@ -46,6 +52,8 @@ function requireInternalRole(requiredRole) {
 
     return session;
 }
+
+// --- Protected-page initialization and logout ---
 
 function initializeInternalAccess(requiredRole) {
     const session = requireInternalRole(requiredRole);

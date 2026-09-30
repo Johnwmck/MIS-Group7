@@ -1,11 +1,36 @@
-// Shared bookstore data and shared data-access utilities.
+// Shared bookstore models, business rules, and browser-storage access.
+
+// --- Shared configuration ---
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2
 });
 
-function Book(id, isbn, title, author, genre, price, inventory, status, image, manualStockOverride = null, description = "") {
+const BOOKS_STORAGE_KEY = 'savedBooks';
+const ORDERS_STORAGE_KEY = 'savedOrders';
+const CART_STORAGE_KEY = 'savedCart';
+const CHECKOUT_STORAGE_KEY = 'checkoutState';
+const INTERNAL_USERS_STORAGE_KEY = 'internalUsers';
+const INTERNAL_SESSION_STORAGE_KEY = 'internalSession';
+const LOW_STOCK_THRESHOLD = 5;
+
+// --- Book model and stock rules ---
+
+function Book(
+    id,
+    isbn,
+    title,
+    author,
+    genre,
+    price,
+    inventory,
+    status,
+    image,
+    manualStockOverride = null,
+    description = ''
+) {
     this.id = id;
     this.isbn = isbn;
     this.title = title;
@@ -21,21 +46,23 @@ function Book(id, isbn, title, author, genre, price, inventory, status, image, m
 }
 
 function isBookOutOfStock(book) {
-    // Inventory reaching zero always wins; the manual override can only make an otherwise available book unavailable.
+    // Inventory reaching zero always wins. The manual override can only make
+    // an otherwise available book unavailable.
     return book.manualStockOverride === true || book.inventory <= 0;
 }
 
-// Customer display only; internal inventory tables continue to show exact counts.
-const CUSTOMER_LOW_STOCK_THRESHOLD = 5;
+function isBookLowStock(book) {
+    return book.inventory <= LOW_STOCK_THRESHOLD;
+}
 
 function getCustomerAvailability(book) {
     if (book.status !== 'Active') return 'Unavailable';
     if (isBookOutOfStock(book)) return 'Out of stock';
-    if (book.inventory <= CUSTOMER_LOW_STOCK_THRESHOLD) return 'Only ' + book.inventory + ' left';
+    if (isBookLowStock(book)) return 'Only ' + book.inventory + ' left';
     return 'In stock';
 }
 
-// Seed data for books
+// --- Seed catalog ---
 const book1 = new Book(
     1,
     "978-0-06-112008-4",
@@ -339,21 +366,26 @@ const initialBooks = [
     book20
 ];
 
+// --- Catalog persistence ---
+
 function loadBooksFromStorage() {
-    let books = JSON.parse(localStorage.getItem('savedBooks'));
+    let books = JSON.parse(localStorage.getItem(BOOKS_STORAGE_KEY));
     if (!books) {
         books = initialBooks;
         saveBooksToStorage(books);
     }
 
-    // Older cached data (saved before prices were stored as plain numbers) may have `price` saved as a formatted string like "$14.99". Coerce it back to a number so currencyFormatter doesn't produce "$NaN".
+    // Repair cached Sprint 1 prices that were stored as strings such as
+    // "$14.99" before price became a numeric field.
     let neededFix = false;
     books.forEach(function (book) {
         // Match identity as well as ID: Admin can reuse IDs after deleting books.
         // Preserve existing descriptions, including an intentionally empty string.
         if (typeof book.description !== 'string') {
             const seed = initialBooks.find(function (candidate) {
-                return candidate.id === book.id && candidate.isbn === book.isbn && candidate.title === book.title;
+                return candidate.id === book.id &&
+                    candidate.isbn === book.isbn &&
+                    candidate.title === book.title;
             });
             book.description = seed ? seed.description : '';
             neededFix = true;
@@ -371,16 +403,18 @@ function loadBooksFromStorage() {
 }
 
 function saveBooksToStorage(books) {
-    localStorage.setItem('savedBooks', JSON.stringify(books));
+    localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books));
 }
 
-// Orders are only written once the checkout flow saves them; until then this returns an empty list so reporting (e.g. admin stats) degrades gracefully.
+// --- Order persistence and reporting ---
+
+// Reporting treats a missing order collection as an empty history.
 function loadOrdersFromStorage() {
-    return JSON.parse(localStorage.getItem('savedOrders')) || [];
+    return JSON.parse(localStorage.getItem(ORDERS_STORAGE_KEY)) || [];
 }
 
 function saveOrdersToStorage(orders) {
-    localStorage.setItem('savedOrders', JSON.stringify(orders));
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
 }
 
 function getBestSellingItems(orders, limit) {
@@ -405,6 +439,7 @@ function getBestSellingItems(orders, limit) {
                 };
             }
 
+            // Sprint 1 orders may not have stored quantity explicitly.
             const quantity = Number.isInteger(item.quantity) && item.quantity > 0
                 ? item.quantity
                 : 1;
@@ -428,7 +463,7 @@ function getBestSellingItems(orders, limit) {
     return rankedItems;
 }
 
-const CHECKOUT_STORAGE_KEY = 'checkoutState';
+// --- Temporary checkout state ---
 
 function saveCheckoutState(mode, items) {
     const checkoutState = {
@@ -458,13 +493,16 @@ function clearCheckoutState() {
     sessionStorage.removeItem(CHECKOUT_STORAGE_KEY);
 }
 
-// Cart entries store book IDs and quantities
+// --- Cart persistence and validation ---
+
+// Cart entries store book IDs and quantities, then resolve current book data
+// from the catalog whenever the cart is displayed or purchased.
 function loadCartFromStorage() {
-    return JSON.parse(localStorage.getItem('savedCart')) || [];
+    return JSON.parse(localStorage.getItem(CART_STORAGE_KEY)) || [];
 }
 
 function saveCartToStorage(cartItems) {
-    localStorage.setItem('savedCart', JSON.stringify(cartItems));
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
 }
 
 function getCartItemCount(cartItems) {
@@ -571,6 +609,8 @@ function removeCartItem(bookId) {
     saveCartToStorage(remainingItems);
 }
 
+// --- Checkout validation and purchase transaction ---
+
 function getCustomerInformationError(customerInfo) {
     if (!customerInfo || typeof customerInfo.name !== 'string') {
         return 'Customer name is required.';
@@ -670,8 +710,7 @@ function purchaseBooks(selection, customerInfo) {
     return { error: '', order: order };
 }
 
-const INTERNAL_USERS_STORAGE_KEY = 'internalUsers';
-const INTERNAL_SESSION_STORAGE_KEY = 'internalSession';
+// --- Internal user persistence and authentication ---
 
 const initialInternalUsers = [
     {
@@ -691,6 +730,9 @@ const initialInternalUsers = [
         active: true
     }
 ];
+
+// These plain-text credentials are intentionally limited to the browser
+// prototype. A production API must own credential storage and verification.
 
 function loadInternalUsersFromStorage() {
     const savedUsers = localStorage.getItem(INTERNAL_USERS_STORAGE_KEY);
@@ -780,11 +822,15 @@ function userHasRequiredRole(session, requiredRole) {
     return session.role === requiredRole;
 }
 
+// --- Demo reset ---
+
 function resetDemoData() {
-    localStorage.removeItem('savedBooks');
-    localStorage.removeItem('savedOrders');
-    localStorage.removeItem('savedCart');
+    localStorage.removeItem(BOOKS_STORAGE_KEY);
+    localStorage.removeItem(ORDERS_STORAGE_KEY);
+    localStorage.removeItem(CART_STORAGE_KEY);
     localStorage.removeItem(INTERNAL_USERS_STORAGE_KEY);
 
     clearCheckoutState();
+    // Preserve the current Admin session so the person running the reset
+    // remains signed in when the seeded Admin account is restored on reload.
 }

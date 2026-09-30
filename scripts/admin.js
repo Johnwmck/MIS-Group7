@@ -1,7 +1,7 @@
 // Admin behavior: everything employee.js does, plus adding/editing/deleting
 // listings, editing price, toggling Active/Inactive status, and reporting stats.
 
-const LOW_STOCK_THRESHOLD = 5;
+// --- Page state and inventory DOM references ---
 
 const bookList = loadBooksFromStorage();
 const inventoryTableBody = document.getElementById('inventoryTableBody');
@@ -13,35 +13,59 @@ function renderInventory() {
 
     bookList.forEach(function (book) {
         const outOfStock = isBookOutOfStock(book);
+        const statusButtonClass = book.status === 'Active'
+            ? 'btn-success'
+            : 'btn-outline-secondary';
+        const stockBadgeClass = outOfStock ? 'bg-danger' : 'bg-success';
+        const stockButtonClass = outOfStock
+            ? 'btn-success'
+            : 'btn-outline-danger';
 
         const row = document.createElement('tr');
         row.dataset.title = book.title.toLowerCase();
         row.innerHTML = `
-            <td><img src="${book.image}" alt="${book.title}" style="width: 40px; height: 55px; object-fit: contain;"></td>
+            <td>
+                <img src="${book.image}" alt="${book.title}"
+                    style="width: 40px; height: 55px; object-fit: contain;">
+            </td>
             <td>${book.title}</td>
             <td>${book.author}</td>
             <td>${book.genre}</td>
             <td>
                 <div class="input-group input-group-sm" style="max-width: 230px;">
                     <span class="input-group-text">$</span>
-                    <input type="number" min="0" step="0.01" class="form-control price-input" value="${book.price}" style="min-width: 70px;">
-                    <button type="button" class="btn btn-outline-secondary update-price-btn">Update</button>
+                    <input type="number" min="0" step="0.01"
+                        class="form-control price-input" value="${book.price}"
+                        style="min-width: 70px;">
+                    <button type="button"
+                        class="btn btn-outline-secondary update-price-btn">
+                        Update
+                    </button>
                 </div>
             </td>
             <td>
                 <div class="input-group input-group-sm" style="max-width: 110px;">
-                    <input type="number" min="0" class="form-control inventory-input" value="${book.inventory}" style="min-width: 40px;">
-                    <button type="button" class="btn btn-outline-secondary update-inventory-btn">Update</button>
+                    <input type="number" min="0"
+                        class="form-control inventory-input" value="${book.inventory}"
+                        style="min-width: 40px;">
+                    <button type="button"
+                        class="btn btn-outline-secondary update-inventory-btn">
+                        Update
+                    </button>
                 </div>
             </td>
             <td>
-                <button type="button" class="btn btn-sm ${book.status === 'Active' ? 'btn-success' : 'btn-outline-secondary'} toggle-status-btn">
+                <button type="button"
+                    class="btn btn-sm ${statusButtonClass} toggle-status-btn">
                     ${book.status}
                 </button>
             </td>
             <td>
-                <span class="badge ${outOfStock ? 'bg-danger' : 'bg-success'}">${outOfStock ? 'Out of Stock' : 'In Stock'}</span>
-                <button type="button" class="btn btn-sm ${outOfStock ? 'btn-success' : 'btn-outline-danger'} toggle-stock-btn mt-1 d-block">
+                <span class="badge ${stockBadgeClass}">
+                    ${outOfStock ? 'Out of Stock' : 'In Stock'}
+                </span>
+                <button type="button"
+                    class="btn btn-sm ${stockButtonClass} toggle-stock-btn mt-1 d-block">
                     ${outOfStock ? 'Mark In Stock' : 'Mark Out of Stock'}
                 </button>
             </td>
@@ -54,7 +78,7 @@ function renderInventory() {
         row.querySelector('.update-price-btn').addEventListener('click', function () {
             const input = row.querySelector('.price-input');
             const newPrice = parseFloat(input.value);
-            if (!isNaN(newPrice) && newPrice >= 0) {
+            if (!Number.isNaN(newPrice) && newPrice >= 0) {
                 book.price = newPrice;
                 saveBooksToStorage(bookList);
                 renderInventory();
@@ -65,7 +89,7 @@ function renderInventory() {
         row.querySelector('.update-inventory-btn').addEventListener('click', function () {
             const input = row.querySelector('.inventory-input');
             const newInventory = parseInt(input.value, 10);
-            if (!isNaN(newInventory) && newInventory >= 0) {
+            if (!Number.isNaN(newInventory) && newInventory >= 0) {
                 book.inventory = newInventory;
                 saveBooksToStorage(bookList);
                 renderInventory();
@@ -97,7 +121,9 @@ function renderInventory() {
 
         row.querySelector('.delete-book-btn').addEventListener('click', function () {
             if (confirm('Delete "' + book.title + '"? This cannot be undone.')) {
-                const index = bookList.findIndex(function (b) { return b.id === book.id; });
+                const index = bookList.findIndex(function (candidate) {
+                    return candidate.id === book.id;
+                });
                 if (index !== -1) {
                     bookList.splice(index, 1);
                     saveBooksToStorage(bookList);
@@ -122,9 +148,10 @@ function applyTitleFilter() {
     });
 }
 
-const resetCatalogButton = document.getElementById("resetCatalogButton");
+const resetCatalogButton = document.getElementById('resetCatalogButton');
 
-resetCatalogButton.addEventListener("click", function () {
+// Reset all persistent demo data while preserving the current Admin session.
+resetCatalogButton.addEventListener('click', function () {
     const confirmed = window.confirm(
         'Reset the catalog, orders, cart, checkout, and internal accounts to the demo state?'
     );
@@ -139,10 +166,10 @@ resetCatalogButton.addEventListener("click", function () {
 
 titleSearchInput.addEventListener('input', applyTitleFilter);
 
-// --- Add / Edit book form ---
+// --- Add/Edit book form ---
 
-const bookFormModalEl = document.getElementById('bookFormModal');
-const bookFormModal = new bootstrap.Modal(bookFormModalEl);
+const bookFormModalElement = document.getElementById('bookFormModal');
+const bookFormModal = new bootstrap.Modal(bookFormModalElement);
 const bookFormModalTitle = document.getElementById('bookFormModalTitle');
 const bookForm = document.getElementById('bookForm');
 const bookFormError = document.getElementById('bookFormError');
@@ -195,7 +222,18 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
     const image = bookFormImage.value.trim();
     const status = bookFormStatus.value;
 
-    if (!title || !author || !genre || !isbn || !image || isNaN(price) || price < 0 || isNaN(inventory) || inventory < 0) {
+    const hasInvalidRequiredField =
+        !title ||
+        !author ||
+        !genre ||
+        !isbn ||
+        !image ||
+        Number.isNaN(price) ||
+        price < 0 ||
+        Number.isNaN(inventory) ||
+        inventory < 0;
+
+    if (hasInvalidRequiredField) {
         bookFormError.textContent = 'Please fill out every required field with valid values.';
         bookFormError.classList.remove('d-none');
         return;
@@ -204,7 +242,9 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
     const existingId = bookFormId.value ? parseInt(bookFormId.value, 10) : null;
 
     if (existingId !== null) {
-        const book = bookList.find(function (b) { return b.id === existingId; });
+        const book = bookList.find(function (candidate) {
+            return candidate.id === existingId;
+        });
         if (book) {
             book.title = title;
             book.author = author;
@@ -218,8 +258,25 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
         }
     } else {
         // Maximum ID + 1 remains unique even if an earlier book was deleted.
-        const nextId = bookList.reduce(function (max, b) { return Math.max(max, b.id); }, 0) + 1;
-        bookList.push(new Book(nextId, isbn, title, author, genre, price, inventory, status, image, null, description));
+        const nextId = bookList.reduce(function (maxId, book) {
+            return Math.max(maxId, book.id);
+        }, 0) + 1;
+
+        bookList.push(
+            new Book(
+                nextId,
+                isbn,
+                title,
+                author,
+                genre,
+                price,
+                inventory,
+                status,
+                image,
+                null,
+                description
+            )
+        );
     }
 
     saveBooksToStorage(bookList);
@@ -228,7 +285,7 @@ document.getElementById('saveBookButton').addEventListener('click', function () 
     bookFormModal.hide();
 });
 
-// --- Reporting ---
+// --- Reporting dashboard ---
 
 const statsSummaryRow = document.getElementById('statsSummaryRow');
 const lowStockList = document.getElementById('lowStockList');
@@ -253,7 +310,8 @@ function renderStats() {
     }, 0);
 
     const lowStockBooks = bookList.filter(function (book) {
-        return book.status === 'Active' && (isBookOutOfStock(book) || book.inventory <= LOW_STOCK_THRESHOLD);
+        return book.status === 'Active' &&
+            (isBookOutOfStock(book) || isBookLowStock(book));
     }).sort(function (a, b) {
         return a.title.localeCompare(b.title);
     });
@@ -276,7 +334,10 @@ function renderStats() {
     lowStockList.innerHTML = lowStockBooks.length
         ? lowStockBooks.map(function (book) {
             return `<li class="list-group-item d-flex justify-content-between">
-                <span>${book.title}</span><span class="text-muted">${isBookOutOfStock(book) ? 'Out of stock · ' : ''}${book.inventory} left</span>
+                <span>${book.title}</span>
+                <span class="text-muted">
+                    ${isBookOutOfStock(book) ? 'Out of stock &middot; ' : ''}${book.inventory} left
+                </span>
             </li>`;
         }).join('')
         : '<li class="list-group-item text-muted">No low-stock items.</li>';
@@ -289,6 +350,8 @@ function renderStats() {
         }).join('')
         : '<li class="list-group-item text-muted">No orders yet.</li>';
 }
+
+// --- Page initialization ---
 
 renderInventory();
 renderStats();

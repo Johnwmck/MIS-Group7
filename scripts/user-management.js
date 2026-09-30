@@ -1,3 +1,7 @@
+// Admin-only Employee account display and management.
+
+// --- Page state and DOM references ---
+
 const internalUsersTableBody = document.getElementById(
     'internalUsersTableBody'
 );
@@ -18,6 +22,8 @@ const userFormPasswordHelp = document.getElementById(
 );
 const userFormError = document.getElementById('userFormError');
 const saveUserButton = document.getElementById('saveUserButton');
+
+// --- Account table rendering ---
 
 function createUserStatusBadge(user) {
     const badge = document.createElement('span');
@@ -97,6 +103,8 @@ function renderInternalUsers() {
         internalUsersTableBody.appendChild(row);
     });
 }
+
+// --- Add/Edit Employee form ---
 
 function showUserFormError(message) {
     userFormError.textContent = message;
@@ -224,6 +232,8 @@ function saveEmployeeFromForm() {
     userFormModal.hide();
 }
 
+// --- Account-management events ---
+
 addEmployeeButton.addEventListener('click', function () {
     openUserForm(null);
 });
@@ -281,5 +291,7 @@ internalUsersTableBody.addEventListener('click', function (event) {
     saveInternalUsersToStorage(users);
     renderInternalUsers();
 });
+
+// --- Page initialization ---
 
 renderInternalUsers();
