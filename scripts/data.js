@@ -383,6 +383,51 @@ function saveOrdersToStorage(orders) {
     localStorage.setItem('savedOrders', JSON.stringify(orders));
 }
 
+function getBestSellingItems(orders, limit) {
+    const salesByBook = {};
+
+    orders.forEach(function (order) {
+        const orderItems = Array.isArray(order.items)
+            ? order.items
+            : [];
+
+        orderItems.forEach(function (item) {
+            const hasBookId = Number.isInteger(item.bookId);
+            const key = hasBookId
+                ? 'book-' + item.bookId
+                : 'title-' + item.title;
+
+            if (!salesByBook[key]) {
+                salesByBook[key] = {
+                    bookId: hasBookId ? item.bookId : null,
+                    title: item.title || 'Unknown title',
+                    quantity: 0
+                };
+            }
+
+            const quantity = Number.isInteger(item.quantity) && item.quantity > 0
+                ? item.quantity
+                : 1;
+
+            salesByBook[key].quantity += quantity;
+        });
+    });
+
+    const rankedItems = Object.values(salesByBook).sort(function (a, b) {
+        if (b.quantity !== a.quantity) {
+            return b.quantity - a.quantity;
+        }
+
+        return a.title.localeCompare(b.title);
+    });
+
+    if (Number.isInteger(limit) && limit >= 0) {
+        return rankedItems.slice(0, limit);
+    }
+
+    return rankedItems;
+}
+
 const CHECKOUT_STORAGE_KEY = 'checkoutState';
 
 function saveCheckoutState(mode, items) {

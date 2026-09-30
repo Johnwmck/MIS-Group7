@@ -1,11 +1,21 @@
 // Customer display, search, filter, etc. Updating what the customer sees.
 
 const bookContainer = document.getElementById('bookContainer');
+const customerBestSellers = document.getElementById('customerBestSellers');
+const customerBestSellersEmpty = document.getElementById('customerBestSellersEmpty');
+const modalBookQuantity = document.getElementById('modalBookQuantity');
 
 let bookList = loadBooksFromStorage();
 
 let selectedBook = null;
 
+function openBookDetails(book) {
+    selectedBook = book;
+    updateBookModal(book);
+
+    const modalElement = document.getElementById('bookModal');
+    bootstrap.Modal.getOrCreateInstance(modalElement).show();
+}
 
 function createBookCard(book) {
     const col = document.createElement('div');
@@ -40,11 +50,7 @@ function createBookCard(book) {
             return;
         }
 
-        selectedBook = book;
-        updateBookModal(book);
-
-        const modalElement = document.getElementById('bookModal');
-        bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        openBookDetails(book);
     });
 
     const quickAddButton = col.querySelector('.quick-add-button');
@@ -67,6 +73,9 @@ function updateBookModal(book) {
     document.getElementById('modalBookDescription').textContent = book.description || 'No description available yet.';
 
     const bookOutOfStock = book.status !== 'Active' || isBookOutOfStock(book);
+    modalBookQuantity.value = 1;
+    modalBookQuantity.max = book.inventory;
+    modalBookQuantity.disabled = bookOutOfStock;
     const inventoryText = document.getElementById('modalBookInventory');
     inventoryText.textContent = getCustomerAvailability(book);
     inventoryText.classList.toggle('text-danger', bookOutOfStock);
@@ -75,30 +84,177 @@ function updateBookModal(book) {
     document.getElementById('buyNowButton').disabled = bookOutOfStock;
 }
 
+const searchFieldSelect = document.getElementById('searchFieldSelect');
+const searchInput = document.getElementById('searchInput');
+const genreFilterSelect = document.getElementById('genreFilterSelect');
+const sortSelect = document.getElementById('sortSelect');
+const catalogEmptyMessage = document.getElementById('catalogEmptyMessage');
 
-function renderCatalog() {
-    bookContainer.innerHTML = "";
-    for (let i = 0; i < bookList.length; i++) {
-        if (bookList[i].status === "Active") {
-            createBookCard(bookList[i]);
-        }
+function populateGenreFilter() {
+    const previousGenre = genreFilterSelect.value;
+
+    const genres = Array.from(
+        new Set(
+            bookList
+                .filter(function (book) {
+                    return book.status === 'Active';
+                })
+                .map(function (book) {
+                    return book.genre;
+                })
+        )
+    ).sort(function (a, b) {
+        return a.localeCompare(b);
+    });
+
+    genreFilterSelect.innerHTML = '';
+
+    const allGenresOption = document.createElement('option');
+    allGenresOption.value = '';
+    allGenresOption.textContent = 'All Genres';
+    genreFilterSelect.appendChild(allGenresOption);
+
+    genres.forEach(function (genre) {
+        const option = document.createElement('option');
+        option.value = genre;
+        option.textContent = genre;
+        genreFilterSelect.appendChild(option);
+    });
+
+    if (genres.includes(previousGenre)) {
+        genreFilterSelect.value = previousGenre;
     }
 }
 
-const searchFieldSelect = document.getElementById('searchFieldSelect');
-const searchInput = document.getElementById('searchInput');
-
-function applySearchFilter() {
+function getVisibleCatalogBooks() {
     const field = searchFieldSelect.value;
     const query = searchInput.value.trim().toLowerCase();
-    Array.from(bookContainer.children).forEach(function (col) {
-        col.classList.toggle('d-none', !col.dataset[field].includes(query));
+    const selectedGenre = genreFilterSelect.value;
+    const selectedSort = sortSelect.value;
+
+    let visibleBooks = bookList.filter(function (book) {
+        return book.status === 'Active';
     });
+
+    if (query) {
+        visibleBooks = visibleBooks.filter(function (book) {
+            const fieldValue = String(book[field] || '').toLowerCase();
+            return fieldValue.includes(query);
+        });
+    }
+
+    if (selectedGenre) {
+        visibleBooks = visibleBooks.filter(function (book) {
+            return book.genre === selectedGenre;
+        });
+    }
+
+    if (selectedSort === 'title-asc') {
+        visibleBooks.sort(function (a, b) {
+            return a.title.localeCompare(b.title);
+        });
+    } else if (selectedSort === 'title-desc') {
+        visibleBooks.sort(function (a, b) {
+            return b.title.localeCompare(a.title);
+        });
+    } else if (selectedSort === 'price-asc') {
+        visibleBooks.sort(function (a, b) {
+            return a.price - b.price;
+        });
+    } else if (selectedSort === 'price-desc') {
+        visibleBooks.sort(function (a, b) {
+            return b.price - a.price;
+        });
+    }
+
+    return visibleBooks;
 }
 
-searchInput.addEventListener('input', applySearchFilter);
-searchFieldSelect.addEventListener('change', applySearchFilter);
+function renderCustomerBestSellers() {
+    const orders = loadOrdersFromStorage();
+    const rankedItems = getBestSellingItems(orders, 5);
 
+    const recommendations = rankedItems
+        .map(function (item) {
+            let book = null;
+
+            if (item.bookId !== null) {
+                book = bookList.find(function (book) {
+                    return book.id === item.bookId;
+                });
+            }
+
+            if (!book) {
+                book = bookList.find(function (book) {
+                    return book.title === item.title;
+                });
+            }
+
+            if (!book || book.status !== 'Active') {
+                return null;
+            }
+
+            return {
+                book: book,
+                quantitySold: item.quantity
+            };
+        })
+        .filter(function (recommendation) {
+            return recommendation !== null;
+        });
+
+    customerBestSellers.innerHTML = '';
+
+    recommendations.forEach(function (recommendation) {
+        const button = document.createElement('button');
+
+        button.type = 'button';
+        button.className =
+            'list-group-item list-group-item-action ' +
+            'd-flex justify-content-between align-items-center';
+
+        const title = document.createElement('span');
+        title.textContent = recommendation.book.title;
+
+        const sales = document.createElement('span');
+        sales.className = 'badge bg-primary rounded-pill';
+        sales.textContent =
+            recommendation.quantitySold + ' sold';
+
+        button.append(title, sales);
+
+        button.addEventListener('click', function () {
+            openBookDetails(recommendation.book);
+        });
+
+        customerBestSellers.appendChild(button);
+    });
+
+    customerBestSellersEmpty.classList.toggle(
+        'd-none',
+        recommendations.length > 0
+    );
+}
+
+function renderCatalog() {
+    const visibleBooks = getVisibleCatalogBooks();
+
+    bookContainer.innerHTML = '';
+
+    visibleBooks.forEach(function (book) {
+        createBookCard(book);
+    });
+
+    catalogEmptyMessage.classList.toggle(
+        'd-none',
+        visibleBooks.length > 0
+    );
+}
+
+searchInput.addEventListener('input', renderCatalog);
+searchFieldSelect.addEventListener('change', renderCatalog);
+genreFilterSelect.addEventListener('change', renderCatalog);
+sortSelect.addEventListener('change', renderCatalog);
 
 
 const cartToastEl = document.getElementById("cartToast");
@@ -118,13 +274,14 @@ function updateCartCount() {
         getCartItemCount(cartItems);
 }
 
-function addBookToCart(bookId) {
+function addBookToCart(bookId, quantityToAdd = 1) {
     const cartItems = loadCartFromStorage();
     const existingItem = cartItems.find(function (item) {
         return item.bookId === bookId;
     });
 
-    const quantity = existingItem ? existingItem.quantity + 1 : 1;
+    const currentQuantity = existingItem ? existingItem.quantity : 0;
+    const quantity = currentQuantity + quantityToAdd;
     const error = setCartQuantity(bookId, quantity);
 
     if (error) {
@@ -133,15 +290,24 @@ function addBookToCart(bookId) {
     }
 
     updateCartCount();
-    showCartToast('Book added to your cart.', 'success');
+    const message = quantityToAdd === 1
+        ? 'Book added to your cart.'
+        : quantityToAdd + ' copies added to your cart.';
+
+    showCartToast(message, 'success');
 }
 
 const addToCartButton = document.getElementById("addToCartButton");
 
-addToCartButton.addEventListener("click", function () {
-    if (selectedBook) {
-        addBookToCart(selectedBook.id);
+addToCartButton.addEventListener('click', function () {
+    if (!selectedBook) {
+        return;
     }
+
+    addBookToCart(
+        selectedBook.id,
+        modalBookQuantity.valueAsNumber
+    );
 });
 
 const buyNowButton = document.getElementById('buyNowButton');
@@ -177,8 +343,9 @@ buyNowButton.addEventListener('click', function () {
 
 function refreshCustomerCatalog() {
     bookList = loadBooksFromStorage();
+    renderCustomerBestSellers();
+    populateGenreFilter();
     renderCatalog();
-    applySearchFilter();
 
     if (selectedBook) {
         selectedBook = bookList.find(function (book) { return book.id === selectedBook.id; });
@@ -201,5 +368,7 @@ window.addEventListener('pageshow', function () {
     }
 });
 
+populateGenreFilter();
+renderCustomerBestSellers();
 renderCatalog();
 updateCartCount();

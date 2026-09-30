@@ -259,14 +259,7 @@ function renderStats() {
     const ordersPlaced = orders.length;
     const revenue = orders.reduce(function (sum, order) { return sum + (order.total || 0); }, 0);
 
-    const titleCounts = {};
-    // Rank copies sold across all saved orders, regardless of current catalog status.
-    orders.forEach(function (order) {
-        (order.items || []).forEach(function (item) {
-            titleCounts[item.title] = (titleCounts[item.title] || 0) + (item.quantity || 1);
-        });
-    });
-    const bestSellers = Object.entries(titleCounts).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5);
+    const bestSellers = getBestSellingItems(orders, 5);
 
     statsSummaryRow.innerHTML =
         statCard('Total Inventory Value', currencyFormatter.format(totalInventoryValue)) +
@@ -284,9 +277,9 @@ function renderStats() {
         : '<li class="list-group-item text-muted">No low-stock items.</li>';
 
     bestSellersList.innerHTML = bestSellers.length
-        ? bestSellers.map(function ([title, quantity]) {
+        ? bestSellers.map(function (item) {
             return `<li class="list-group-item d-flex justify-content-between">
-                <span>${title}</span><span class="text-muted">${quantity} sold</span>
+                <span>${item.title}</span><span class="text-muted">${item.quantity} sold</span>
             </li>`;
         }).join('')
         : '<li class="list-group-item text-muted">No orders yet.</li>';
