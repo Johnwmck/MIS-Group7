@@ -52,6 +52,7 @@ h6,
 
 a {
     color: var(--brand-crimson);
+    transition: color 0.15s ease;
 }
 
 a:hover {
@@ -63,29 +64,106 @@ a:hover {
 .site-navbar {
     background: linear-gradient(135deg, var(--brand-crimson-dark), var(--brand-crimson));
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.site-navbar.navbar-hidden {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .site-navbar {
+        transition: none;
+    }
 }
 
 .navbar-brand {
-    font-size: 1.4rem;
-    letter-spacing: 0.01em;
     display: flex;
     align-items: center;
-    color: #fff !important;
+    padding: 0.4rem 0.85rem;
+    background: var(--brand-ivory-soft);
+    border-radius: 0.6rem;
 }
 
-.navbar-brand::before {
-    content: "";
-    display: inline-block;
-    width: 0.55rem;
-    height: 0.55rem;
-    margin-right: 0.55rem;
-    background: var(--brand-gray);
-    border-radius: 2px;
-    transform: rotate(45deg);
+.navbar-logo {
+    height: 64px;
+    width: auto;
+    display: block;
+}
+
+/* --- Search bar (inline in the navbar row) --- */
+
+.navbar-search-form {
+    width: 100%;
+    max-width: 700px;
+    margin-top: 0.5rem;
+}
+
+@media (min-width: 992px) {
+    .navbar-search-form {
+        margin-top: 0;
+    }
+}
+
+.navbar-search-group {
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.navbar-search-group:focus-within {
+    box-shadow: 0 0 0 0.2rem rgba(233, 231, 222, 0.5), 0 4px 10px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.navbar-search-group .form-control {
+    border: none;
+    padding-left: 1rem;
+}
+
+.navbar-search-group .form-control:focus {
+    box-shadow: none;
+}
+
+.navbar-search-btn {
+    background: var(--brand-ivory-soft);
+    border: none;
+    color: var(--brand-crimson);
+    padding-inline: 0.9rem;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-search-btn:hover {
+    background: #fff;
+    color: var(--brand-crimson-dark);
 }
 
 .navbar .nav-link {
     font-weight: 500;
+    position: relative;
+    transition: color 0.15s ease;
+}
+
+.navbar .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 100%;
+    bottom: 0;
+    height: 2px;
+    background: var(--brand-gray);
+    transition: right 0.2s ease;
+}
+
+.navbar .nav-link:hover::after {
+    right: 0;
 }
 
 .navbar .nav-link.active {
@@ -96,13 +174,39 @@ a:hover {
     text-underline-offset: 6px;
 }
 
+.navbar .nav-link.active::after {
+    content: none;
+}
+
 /* --- Hero banner (customer home) --- */
 
 .brand-hero {
-    background: linear-gradient(135deg, var(--brand-crimson-dark), var(--brand-crimson));
+    background: linear-gradient(120deg, var(--brand-crimson-dark), var(--brand-crimson), var(--brand-crimson-dark));
+    background-size: 200% 200%;
+    animation: hero-gradient-pan 10s ease infinite;
     color: #fff;
     padding: 2.5rem 1rem;
     margin-bottom: 2rem;
+}
+
+@keyframes hero-gradient-pan {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brand-hero {
+        animation: none;
+    }
 }
 
 .brand-hero h1 {
@@ -174,6 +278,11 @@ a:hover {
     object-fit: contain;
     background-color: var(--brand-ivory-soft);
     padding-top: 0.5rem;
+    transition: transform 0.2s ease;
+}
+
+#bookContainer .card:hover .card-img-top {
+    transform: scale(1.04);
 }
 
 #bookContainer .card.out-of-stock .card-img-top {
@@ -187,11 +296,25 @@ a:hover {
     font-weight: 600;
 }
 
+.list-group-item-action {
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.list-group-item-action:hover {
+    transform: translateX(3px);
+}
+
 /* Report stat cards (admin) */
 
 #statsSummaryRow .card {
     border-top: 3px solid var(--brand-crimson);
     text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#statsSummaryRow .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 #statsSummaryRow .fs-4 {
@@ -201,6 +324,18 @@ a:hover {
 /* --- Buttons (primary only — success/secondary stay Bootstrap default;
    danger is remapped below so delete/out-of-stock signals never compete
    visually with the brand color) --- */
+
+.btn {
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
 
 .btn-primary {
     --bs-btn-bg: var(--brand-crimson);
@@ -260,6 +395,14 @@ a:hover {
     color: var(--brand-gray-dark);
     border-bottom: 2px solid var(--brand-crimson);
     font-weight: 600;
+}
+
+.table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.table tbody tr:hover {
+    background-color: var(--brand-crimson-tint);
 }
 
 /* --- Modals --- */

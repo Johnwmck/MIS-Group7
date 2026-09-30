@@ -93,7 +93,6 @@ function updateBookModal(book) {
 
 // --- Catalog search, filtering, and sorting ---
 
-const searchFieldSelect = document.getElementById('searchFieldSelect');
 const searchInput = document.getElementById('searchInput');
 const genreFilterSelect = document.getElementById('genreFilterSelect');
 const sortSelect = document.getElementById('sortSelect');
@@ -136,7 +135,6 @@ function populateGenreFilter() {
 }
 
 function getVisibleCatalogBooks() {
-    const field = searchFieldSelect.value;
     const query = searchInput.value.trim().toLowerCase();
     const selectedGenre = genreFilterSelect.value;
     const selectedSort = sortSelect.value;
@@ -146,9 +144,11 @@ function getVisibleCatalogBooks() {
     });
 
     if (query) {
+        const searchFields = ['title', 'author', 'genre', 'isbn'];
         visibleBooks = visibleBooks.filter(function (book) {
-            const fieldValue = String(book[field] || '').toLowerCase();
-            return fieldValue.includes(query);
+            return searchFields.some(function (field) {
+                return String(book[field] || '').toLowerCase().includes(query);
+            });
         });
     }
 
@@ -266,7 +266,6 @@ function renderCatalog() {
 }
 
 searchInput.addEventListener('input', renderCatalog);
-searchFieldSelect.addEventListener('change', renderCatalog);
 genreFilterSelect.addEventListener('change', renderCatalog);
 sortSelect.addEventListener('change', renderCatalog);
 
