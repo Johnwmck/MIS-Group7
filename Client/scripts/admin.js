@@ -3,8 +3,96 @@
 
 // --- Page state and inventory DOM references ---
 
-const bookList = loadBooksFromStorage();
+let bookList = [];
+let adminBusy = false;
+
+const adminMessage = document.getElementById('adminMessage');
 const inventoryTableBody = document.getElementById('inventoryTableBody');
+
+// --- API loading and updates ---
+
+function showAdminMessage(message, isError = false) {
+    adminMessage.textContent = message;
+    adminMessage.classList.toggle('d-none', message.length === 0);
+    adminMessage.classList.toggle('alert-danger', isError);
+    adminMessage.classList.toggle('alert-info', !isError);
+}
+
+function setAdminBusy(busy) {
+    adminBusy = busy;
+
+    document.getElementById('addBookButton').disabled = busy;
+    document.getElementById('saveBookButton').disabled = busy;
+    document.getElementById('resetCatalogButton').disabled = busy;
+
+    renderInventory();
+}
+
+async function loadAdminCatalog() {
+    setAdminBusy(true);
+    showAdminMessage('Loading catalog...');
+
+    try {
+        bookList = await loadBooksFromApi();
+        renderStats();
+        showAdminMessage('');
+    } catch (error) {
+        bookList = [];
+        statsSummaryRow.innerHTML = '';
+        lowStockList.innerHTML = '';
+        bestSellersList.innerHTML = '';
+
+        showAdminMessage(
+            'Unable to load the catalog. ' + error.message,
+            true
+        );
+    } finally {
+        setAdminBusy(false);
+    }
+}
+
+async function runAdminBookAction(action, successMessage) {
+    if (adminBusy) {
+        return false;
+    }
+
+    setAdminBusy(true);
+    showAdminMessage('Saving...');
+
+    try {
+        await action();
+
+        bookList = await loadBooksFromApi();
+        renderStats();
+        showAdminMessage(successMessage);
+
+        return true;
+    } catch (error) {
+        const message =
+            'The operation could not be confirmed. ' +
+            error.message +
+            ' Refresh before retrying.';
+
+        showAdminMessage(message, true);
+
+        if (bookFormModalElement.classList.contains('show')) {
+            bookFormError.textContent = message;
+            bookFormError.classList.remove('d-none');
+        }
+
+        return false;
+    } finally {
+        setAdminBusy(false);
+    }
+}
+
+async function updateAdminBookField(bookId, field, value) {
+    await runAdminBookAction(async function () {
+        const book = await loadBookFromApi(bookId);
+        book[field] = value;
+        await updateBookInApi(book);
+    }, 'Book updated.');
+}
 
 // --- Inventory and catalog management ---
 
@@ -76,43 +164,41 @@ function renderInventory() {
         `;
 
         row.querySelector('.update-price-btn').addEventListener('click', function () {
-            const input = row.querySelector('.price-input');
-            const newPrice = parseFloat(input.value);
-            if (!Number.isNaN(newPrice) && newPrice >= 0) {
-                book.price = newPrice;
-                saveBooksToStorage(bookList);
-                renderInventory();
-                renderStats();
+            const price = row.querySelector('.price-input').valueAsNumber;
+
+            if (!Number.isFinite(price) || price < 0) {
+                showAdminMessage('Price must be zero or greater.', true);
+                return;
             }
+
+            updateAdminBookField(book.id, 'price', price);
         });
 
         row.querySelector('.update-inventory-btn').addEventListener('click', function () {
-            const input = row.querySelector('.inventory-input');
-            const newInventory = parseInt(input.value, 10);
-            if (!Number.isNaN(newInventory) && newInventory >= 0) {
-                book.inventory = newInventory;
-                saveBooksToStorage(bookList);
-                renderInventory();
-                renderStats();
+            const inventory = row.querySelector('.inventory-input').valueAsNumber;
+
+            if (!Number.isInteger(inventory) || inventory < 0) {
+                showAdminMessage(
+                    'Inventory must be a whole number of zero or greater.',
+                    true
+                );
+                return;
             }
+
+            updateAdminBookField(book.id, 'inventory', inventory);
         });
 
         row.querySelector('.toggle-status-btn').addEventListener('click', function () {
-            book.status = book.status === 'Active' ? 'Inactive' : 'Active';
-            saveBooksToStorage(bookList);
-            renderInventory();
-            renderStats();
+            const status = book.status === 'Active' ? 'Inactive' : 'Active';
+            updateAdminBookField(book.id, 'status', status);
         });
 
         const toggleStockButton = row.querySelector('.toggle-stock-btn');
-        // Zero inventory is always out of stock. The manual override only lets
-        // Admin make a book unavailable while physical inventory still exists.
         toggleStockButton.disabled = book.inventory <= 0;
+
         toggleStockButton.addEventListener('click', function () {
-            book.manualStockOverride = book.manualStockOverride === true ? null : true;
-            saveBooksToStorage(bookList);
-            renderInventory();
-            renderStats();
+            const override = book.manualStockOverride === true ? null : true;
+            updateAdminBookField(book.id, 'manualStockOverride', override);
         });
 
         row.querySelector('.edit-book-btn').addEventListener('click', function () {
@@ -120,18 +206,20 @@ function renderInventory() {
         });
 
         row.querySelector('.delete-book-btn').addEventListener('click', function () {
-            if (confirm('Delete "' + book.title + '"? This cannot be undone.')) {
-                const index = bookList.findIndex(function (candidate) {
-                    return candidate.id === book.id;
-                });
-                if (index !== -1) {
-                    bookList.splice(index, 1);
-                    saveBooksToStorage(bookList);
-                    renderInventory();
-                    renderStats();
-                }
+            if (!confirm('Delete "' + book.title + '"? This cannot be undone.')) {
+                return;
             }
+
+            runAdminBookAction(async function () {
+                await deleteBookInApi(book.id);
+            }, 'Book deleted.');
         });
+
+        if (adminBusy) {
+            row.querySelectorAll('input, button').forEach(function (control) {
+                control.disabled = true;
+            });
+        }
 
         inventoryTableBody.appendChild(row);
     });
@@ -153,7 +241,8 @@ const resetCatalogButton = document.getElementById('resetCatalogButton');
 // Reset all persistent demo data while preserving the current Admin session.
 resetCatalogButton.addEventListener('click', function () {
     const confirmed = window.confirm(
-        'Reset the catalog, orders, cart, checkout, and internal accounts to the demo state?'
+        'Reset this browser’s demo orders, cart, checkout, accounts, and legacy catalog? ' +
+        'The API catalog will not change.'
     );
 
     if (!confirmed) {
@@ -211,78 +300,65 @@ document.getElementById('addBookButton').addEventListener('click', function () {
     openBookForm(null);
 });
 
-document.getElementById('saveBookButton').addEventListener('click', function () {
-    const title = bookFormTitle.value.trim();
-    const author = bookFormAuthor.value.trim();
-    const description = bookFormDescription.value.trim();
-    const genre = bookFormGenre.value.trim();
-    const isbn = bookFormIsbn.value.trim();
-    const price = parseFloat(bookFormPrice.value);
-    const inventory = parseInt(bookFormInventory.value, 10);
-    const image = bookFormImage.value.trim();
-    const status = bookFormStatus.value;
+document.getElementById('saveBookButton').addEventListener('click', async function () {
+    if (adminBusy) {
+        return;
+    }
 
-    const hasInvalidRequiredField =
-        !title ||
-        !author ||
-        !genre ||
-        !isbn ||
-        !image ||
-        Number.isNaN(price) ||
-        price < 0 ||
-        Number.isNaN(inventory) ||
-        inventory < 0;
+    const values = {
+        title: bookFormTitle.value.trim(),
+        author: bookFormAuthor.value.trim(),
+        description: bookFormDescription.value.trim(),
+        genre: bookFormGenre.value.trim(),
+        isbn: bookFormIsbn.value.trim(),
+        price: bookFormPrice.valueAsNumber,
+        inventory: bookFormInventory.valueAsNumber,
+        image: bookFormImage.value.trim(),
+        status: bookFormStatus.value
+    };
 
-    if (hasInvalidRequiredField) {
-        bookFormError.textContent = 'Please fill out every required field with valid values.';
+    const invalid =
+        !values.title ||
+        !values.author ||
+        !values.genre ||
+        !values.isbn ||
+        !values.image ||
+        !Number.isFinite(values.price) ||
+        values.price < 0 ||
+        !Number.isInteger(values.inventory) ||
+        values.inventory < 0;
+
+    if (invalid) {
+        bookFormError.textContent =
+            'Complete all required fields. Price must be nonnegative, ' +
+            'and inventory must be a nonnegative whole number.';
         bookFormError.classList.remove('d-none');
         return;
     }
 
-    const existingId = bookFormId.value ? parseInt(bookFormId.value, 10) : null;
+    bookFormError.classList.add('d-none');
 
-    if (existingId !== null) {
-        const book = bookList.find(function (candidate) {
-            return candidate.id === existingId;
-        });
-        if (book) {
-            book.title = title;
-            book.author = author;
-            book.description = description;
-            book.genre = genre;
-            book.isbn = isbn;
-            book.price = price;
-            book.inventory = inventory;
-            book.image = image;
-            book.status = status;
+    const existingId = bookFormId.value
+        ? Number(bookFormId.value)
+        : null;
+
+    const succeeded = await runAdminBookAction(async function () {
+        if (existingId !== null) {
+            const book = await loadBookFromApi(existingId);
+            Object.assign(book, values);
+            await updateBookInApi(book);
+        } else {
+            await createBookInApi({
+                ...values,
+                id: 0,
+                manualStockOverride: null
+            });
         }
-    } else {
-        // Maximum ID + 1 remains unique even if an earlier book was deleted.
-        const nextId = bookList.reduce(function (maxId, book) {
-            return Math.max(maxId, book.id);
-        }, 0) + 1;
+    }, existingId === null ? 'Book created.' : 'Book updated.');
 
-        bookList.push(
-            new Book(
-                nextId,
-                isbn,
-                title,
-                author,
-                genre,
-                price,
-                inventory,
-                status,
-                image,
-                null,
-                description
-            )
-        );
+    if (succeeded) {
+        bookFormModal.hide();
     }
-
-    saveBooksToStorage(bookList);
-    renderInventory();
-    renderStats();
-    bookFormModal.hide();
 });
 
 // --- Reporting dashboard ---
@@ -353,5 +429,4 @@ function renderStats() {
 
 // --- Page initialization ---
 
-renderInventory();
-renderStats();
+loadAdminCatalog();

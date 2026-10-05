@@ -2,7 +2,10 @@
 
 // --- Page state and DOM references ---
 
-const bookList = loadBooksFromStorage();
+let bookList = [];
+let inventoryBusy = false;
+
+const inventoryMessage = document.getElementById('inventoryMessage');
 const inventoryTableBody = document.getElementById('inventoryTableBody');
 
 // --- Inventory table ---
@@ -52,22 +55,34 @@ function renderInventory() {
 
         row.querySelector('.update-inventory-btn').addEventListener('click', function () {
             const input = row.querySelector('.inventory-input');
-            const newInventory = parseInt(input.value, 10);
-            if (!Number.isNaN(newInventory) && newInventory >= 0) {
-                book.inventory = newInventory;
-                saveBooksToStorage(bookList);
-                renderInventory();
+            const newInventory = input.valueAsNumber;
+
+            if (!Number.isInteger(newInventory) || newInventory < 0) {
+                showInventoryMessage(
+                    'Inventory must be a whole number of zero or greater.',
+                    true
+                );
+                return;
             }
+
+            saveEmployeeBookChange(book.id, 'inventory', newInventory);
         });
 
         const toggleStockButton = row.querySelector('.toggle-stock-btn');
         // A manual override cannot make zero inventory purchasable.
         toggleStockButton.disabled = book.inventory <= 0;
         toggleStockButton.addEventListener('click', function () {
-            book.manualStockOverride = book.manualStockOverride === true ? null : true;
-            saveBooksToStorage(bookList);
-            renderInventory();
+            const newOverride =
+                book.manualStockOverride === true ? null : true;
+
+            saveEmployeeBookChange(book.id, 'manualStockOverride', newOverride);
         });
+
+        if (inventoryBusy) {
+            row.querySelectorAll('input, button').forEach(function (control) {
+                control.disabled = true;
+            });
+        }
 
         inventoryTableBody.appendChild(row);
     });
@@ -88,4 +103,63 @@ titleSearchInput.addEventListener('input', applyTitleFilter);
 
 // --- Page initialization ---
 
-renderInventory();
+function showInventoryMessage(message, isError = false) {
+    inventoryMessage.textContent = message;
+    inventoryMessage.classList.toggle('d-none', message.length === 0);
+    inventoryMessage.classList.toggle('alert-danger', isError);
+    inventoryMessage.classList.toggle('alert-info', !isError);
+}
+
+async function loadInventory() {
+    inventoryBusy = true;
+    showInventoryMessage('Loading inventory...');
+
+    try {
+        bookList = await loadBooksFromApi();
+        showInventoryMessage('');
+    } catch (error) {
+        bookList = [];
+        showInventoryMessage(
+            'Unable to load inventory. ' + error.message,
+            true
+        );
+    } finally {
+        inventoryBusy = false;
+        renderInventory();
+    }
+}
+
+async function saveEmployeeBookChange(bookId, field, value) {
+    if (inventoryBusy) {
+        return;
+    }
+
+    inventoryBusy = true;
+    renderInventory();
+    showInventoryMessage('Saving...');
+
+    try {
+        const currentBook = await loadBookFromApi(bookId);
+        currentBook[field] = value;
+
+        const savedBook = await updateBookInApi(currentBook);
+
+        bookList = bookList.map(function (book) {
+            return book.id === savedBook.id ? savedBook : book;
+        });
+
+        showInventoryMessage('Saved changes to ' + savedBook.title + '.');
+    } catch (error) {
+        showInventoryMessage(
+            'The update could not be confirmed. ' +
+            error.message +
+            ' Refresh before retrying.',
+            true
+        );
+    } finally {
+        inventoryBusy = false;
+        renderInventory();
+    }
+}
+
+loadInventory();

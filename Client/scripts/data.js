@@ -834,3 +834,86 @@ function resetDemoData() {
     // Preserve the current Admin session so the person running the reset
     // remains signed in when the seeded Admin account is restored on reload.
 }
+
+async function loadBooksFromApi() {
+    const response = await fetch('/api/books');
+
+    if (!response.ok) {
+        throw new Error('Failed to load books: HTTP ' + response.status);
+    }
+
+    const books = await response.json();
+
+    if (!Array.isArray(books)) {
+        throw new Error('The API did not return a book array.');
+    }
+
+    return books;
+}
+
+async function loadBookFromApi(bookId) {
+    const response = await fetch('/api/books/' + bookId);
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.error || result.title || 'HTTP ' + response.status
+        );
+    }
+
+    return result;
+}
+
+async function updateBookInApi(book) {
+    const response = await fetch('/api/books/' + book.id, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(book)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.error || result.title || 'HTTP ' + response.status
+        );
+    }
+
+    return result;
+}
+
+async function createBookInApi(book) {
+    const response = await fetch('/api/books', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(book)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            result.error || result.title || 'HTTP ' + response.status
+        );
+    }
+
+    return result;
+}
+
+async function deleteBookInApi(bookId) {
+    const response = await fetch('/api/books/' + bookId, {
+        method: 'DELETE'
+    });
+
+    if (!response.ok) {
+        const result = await response.json();
+
+        throw new Error(
+            result.error || result.title || 'HTTP ' + response.status
+        );
+    }
+}

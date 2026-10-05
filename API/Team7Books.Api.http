@@ -1,0 +1,9 @@
+@Team7Books.Api_HostAddress = http://localhost:5187
+
+### Read the current API catalog
+GET {{Team7Books.Api_HostAddress}}/api/books
+Accept: application/json
+
+### Read one seeded book (404 if deleted)
+GET {{Team7Books.Api_HostAddress}}/api/books/1
+Accept: application/json

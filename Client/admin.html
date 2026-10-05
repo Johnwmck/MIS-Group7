@@ -62,6 +62,13 @@
             <button type="button" class="btn btn-primary" id="addBookButton">Add Book</button>
         </div>
 
+        <p class="alert alert-info">
+            Catalog and inventory use the API. Sales reports and order history
+            still use this browser's demo orders during migration.
+        </p>
+
+        <p id="adminMessage" class="alert d-none" role="status"></p>
+
         <input type="search" class="form-control mb-3" id="titleSearchInput" placeholder="Search by title...">
 
         <div class="table-responsive">
@@ -292,7 +299,7 @@
 
     <div class="container mb-4">
         <button id="resetCatalogButton" class="btn btn-sm btn-outline-danger">
-            Reset Demo Data
+            Reset Browser Demo Data
         </button>
         <!-- dev-only: delete or add "d-none" to the class list to hide -->
     </div>
