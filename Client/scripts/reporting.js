@@ -3,6 +3,7 @@
 
 // --- Order reporting ---
 
+// Aggregate sold quantities by identity, retaining historical snapshot titles.
 function getBestSellingItems(orders, limit) {
     const salesByBook = {};
 
@@ -196,6 +197,8 @@ function renderOrderHistory(orders, hasOrders, { orderHistoryList, orderHistoryE
 // --- Customer recommendations ---
 
 function renderCustomerBestSellers(orders, books, list, emptyMessage, onSelect) {
+    // Rank all sales first; resolve/filter current sellable books before taking
+    // five, so deleted/inactive titles do not leave avoidable recommendation gaps.
     const rankedItems = getBestSellingItems(orders);
 
     const recommendations = rankedItems
@@ -277,6 +280,8 @@ function statCard(label, value) {
 }
 
 async function renderStats(books, { statsSummaryRow, lowStockList, bestSellersList }) {
+    // Catalog stats can remain available when order loading fails. Sales metrics
+    // must show Unavailable rather than report a misleading zero.
     const totalInventoryValue = books.reduce(function (sum, book) {
         return sum + book.price * book.inventory;
     }, 0);

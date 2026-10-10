@@ -3,7 +3,7 @@
 
 const CART_STORAGE_KEY = 'savedCart';
 
-// --- Cart persistence and validation ---
+// --- Saved selections ---
 
 // Cart entries store book IDs and quantities, then resolve current book data
 // from the catalog whenever the cart is displayed or purchased.
@@ -14,6 +14,8 @@ function loadCartFromStorage() {
 function saveCartToStorage(cartItems) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
 }
+
+// --- Post-purchase cleanup of the current shared cart ---
 
 function subtractPurchasedCartItems(purchasedItems) {
     const purchasedQuantities = new Map();
@@ -39,6 +41,8 @@ function getCartItemCount(cartItems) {
 
     return count;
 }
+
+// --- Selection validation against current API inventory ---
 
 function getCartQuantityError(book, quantity) {
     if (!book) {
@@ -87,6 +91,9 @@ async function setCartQuantity(bookId, quantity) {
     return '';
 }
 
+// --- Reconciliation after catalog/inventory changes ---
+// Optional preloaded books avoid another request when the page already has
+// current API data. No browser catalog is used as a fallback.
 async function reconcileCart(books = null) {
     // Fetch before reading or changing cart state. A failed request preserves it.
     books = books || await loadBooksFromApi();

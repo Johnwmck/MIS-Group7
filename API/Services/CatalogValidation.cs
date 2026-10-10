@@ -5,6 +5,7 @@ namespace Team7Books.Api.Services;
 // Shared by catalog requests, CSV seeds, and saved-state validation.
 public static class CatalogValidation
 {
+    // --- ISBN normalization and checksum validation ---
     public static string NormalizeIsbn(string? isbn) =>
         (isbn ?? "").Trim().Replace("-", "").Replace(" ", "");
 
@@ -21,6 +22,8 @@ public static class CatalogValidation
         return false;
     }
 
+    // --- Money and complete catalog-record validation ---
+    // Check exact decimal values; reject fractional cents instead of rounding input.
     public static bool IsMoney(decimal value) =>
         value >= 0 && value == decimal.Round(value, 2);
 

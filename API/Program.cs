@@ -2,7 +2,7 @@ using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// --- API services and one shared persistent store ---
 
 builder.Services.AddControllers();
 builder.Services.AddSingleton<Team7Books.Api.Services.BookstoreStore>();
@@ -10,6 +10,8 @@ builder.Services.AddSingleton<Team7Books.Api.Services.BookstoreStore>();
 var app = builder.Build();
 // Fail startup on corrupt saved data; never silently overwrite it with seeds.
 app.Services.GetRequiredService<Team7Books.Api.Services.BookstoreStore>();
+// --- Persistence failure responses ---
+// Only confirmed save failures become 503 here; other exceptions are not hidden.
 app.Use(async (context, next) =>
 {
     try { await next(context); }
@@ -20,7 +22,7 @@ app.Use(async (context, next) =>
     }
 });
 
-// Configure the HTTP request pipeline.
+// --- Same-origin client hosting and request routing ---
 
 if (!app.Environment.IsDevelopment())
 {
@@ -44,6 +46,8 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseRouting();
 
 app.UseAuthorization();
+// This middleware alone does not enforce roles. Prototype login is browser-only;
+// protected API endpoints still need server authentication before production.
 
 app.MapControllers();
 

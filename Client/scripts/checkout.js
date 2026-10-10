@@ -112,7 +112,7 @@ async function renderCheckoutReview() {
     }
 }
 
-// --- Submission boundary and page initialization ---
+// --- Server purchase submission and confirmation ---
 
 checkoutForm.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -156,6 +156,7 @@ checkoutForm.addEventListener('submit', async function (event) {
         return;
     }
 
+    // --- Confirmed success and local cleanup ---
     // The server has committed. Cleanup failure must never look like purchase failure.
     checkoutReady = false;
     checkoutContent.classList.add('d-none');
@@ -177,6 +178,8 @@ checkoutForm.addEventListener('submit', async function (event) {
         checkoutBusy = false;
     }
 });
+
+// --- Page initialization and back-forward-cache restoration ---
 
 renderCheckoutReview();
 window.addEventListener('pageshow', function (event) {

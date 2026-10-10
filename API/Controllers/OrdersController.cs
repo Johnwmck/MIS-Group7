@@ -8,10 +8,13 @@ namespace Team7Books.Api.Controllers;
 [Route("api/orders")]
 public class OrdersController : ControllerBase
 {
+    // --- Purchase policy and shared store ---
     private const decimal SalesTaxRate = 0.10m;
     private readonly BookstoreStore store;
 
     public OrdersController(BookstoreStore store) { this.store = store; }
+
+    // --- Completed-order reads ---
 
     [HttpGet]
     public ActionResult<List<Order>> Get()
@@ -33,6 +36,8 @@ public class OrdersController : ControllerBase
                 : Ok(order);
         }
     }
+
+    // --- All-or-nothing purchase submission ---
 
     [HttpPost]
     public ActionResult<Order> Create([FromBody] CreateOrderRequest request)
@@ -56,6 +61,7 @@ public class OrdersController : ControllerBase
         {
             var items = new List<OrderItem>();
             decimal total = 0;
+            // Stage historical item snapshots without changing live inventory.
             foreach (var entry in request.Items)
             {
                 if (entry.BookId < 1 || entry.Quantity < 1 || entry.Price is null ||
@@ -89,6 +95,8 @@ public class OrdersController : ControllerBase
             if (store.NextOrderId == int.MaxValue)
                 return BadRequest(new { error = "No further order IDs are available." });
 
+            // Round tax once on the full subtotal, not per item. Save the result
+            // with the order so future policy changes cannot rewrite history.
             decimal subtotal;
             decimal tax;
             decimal grandTotal;
@@ -114,6 +122,8 @@ public class OrdersController : ControllerBase
                 Tax = tax,
                 Total = grandTotal
             };
+            // Save order and inventory together; new revisions invalidate
+            // Admin/Employee views opened before this purchase.
             var candidate = store.CreateSnapshot();
             candidate.Orders.Add(order);
             foreach (var item in items)

@@ -101,7 +101,7 @@ function applyTitleFilter() {
 
 titleSearchInput.addEventListener('input', applyTitleFilter);
 
-// --- Page initialization ---
+// --- API feedback, catalog loading, and inventory updates ---
 
 function showInventoryMessage(message, isError = false) {
     inventoryMessage.textContent = message;
@@ -130,6 +130,8 @@ async function loadInventory() {
 }
 
 async function saveEmployeeBookChange(bookId, field, value) {
+    // Absolute inventory inputs belong to the displayed revision. A fresh GET
+    // supplies details but must not erase the original concurrency check.
     if (inventoryBusy) {
         return;
     }

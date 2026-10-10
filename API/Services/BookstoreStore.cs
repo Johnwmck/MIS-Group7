@@ -7,6 +7,7 @@ namespace Team7Books.Api.Services;
 // candidate, persist it, then publish it under the shared lock.
 public sealed class BookstoreStore : IDisposable
 {
+    // --- Storage configuration and current state ---
     private static readonly JsonSerializerOptions json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string statePath;
     private readonly string seedPath;
@@ -17,6 +18,9 @@ public sealed class BookstoreStore : IDisposable
     public List<Order> Orders => state.Orders;
     public int NextBookId => state.NextBookId;
     public int NextOrderId => state.NextOrderId;
+
+    // --- Startup loading and exclusive file ownership ---
+    // Saved state wins over seeds. A bad saved file must never trigger a reset.
 
     public BookstoreStore(IWebHostEnvironment environment, IConfiguration configuration)
     {
@@ -44,11 +48,13 @@ public sealed class BookstoreStore : IDisposable
         catch { ownership.Dispose(); throw; }
     }
 
+    // --- Snapshot preparation and durable commit ---
     // Called only while SyncRoot is held. Deep-copy prevents failed saves from
     // changing the catalog, orders, or ID counters visible to other requests.
     public BookstoreState CreateSnapshot() =>
         JsonSerializer.Deserialize<BookstoreState>(JsonSerializer.Serialize(state, json), json)!;
 
+    // Caller holds SyncRoot through validation, disk replacement, and publication.
     public void Commit(BookstoreState candidate)
     {
         SavedStateValidation.Validate(candidate);
@@ -60,11 +66,16 @@ public sealed class BookstoreStore : IDisposable
         state = candidate;
     }
 
+    // --- Explicit demo reset ---
+
     public void Reset()
     {
         lock (SyncRoot) { Commit(SeedCatalog.Load(seedPath)); }
     }
 
+    // --- Atomic disk persistence ---
+    // Keep the temporary file beside the state file for same-filesystem replacement.
+    // Flush first; neither partial JSON nor failed writes should become live state.
     private void WriteState(BookstoreState candidate)
     {
         var temporary = statePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -83,6 +94,8 @@ public sealed class BookstoreStore : IDisposable
             if (File.Exists(temporary)) File.Delete(temporary);
         }
     }
+
+    // --- Process-lifetime cleanup ---
 
     public void Dispose() => ownership.Dispose();
 }

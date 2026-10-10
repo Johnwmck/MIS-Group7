@@ -6,8 +6,10 @@ namespace Team7Books.Api.Services;
 
 public static class SeedCatalog
 {
+    // First startup/reset only; normal mutations never rewrite the source CSV.
     public static BookstoreState Load(string path)
     {
+        // Respect quoted commas in titles/descriptions; simple Split(',') is unsafe.
         using var csv = new TextFieldParser(path);
         csv.SetDelimiters(",");
         csv.HasFieldsEnclosedInQuotes = true;
@@ -18,6 +20,8 @@ public static class SeedCatalog
         if (!(csv.ReadFields() ?? Array.Empty<string>()).SequenceEqual(expected))
             throw new InvalidDataException("Seed CSV headers do not match the catalog schema.");
 
+        // --- Parse and validate records before returning a complete seed state ---
+        // Invariant culture keeps decimal parsing identical across teammates' PCs.
         var state = new BookstoreState();
         var ids = new HashSet<int>();
         var isbns = new HashSet<string>();

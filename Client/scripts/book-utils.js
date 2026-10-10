@@ -1,5 +1,7 @@
 // Shared currency formatting and catalog availability display.
 
+// --- Display configuration and input checks ---
+
 const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -13,6 +15,7 @@ function isValidBookPrice(price) {
     return Number.isFinite(price) && price >= 0 && price === Number(price.toFixed(2));
 }
 
+// --- Purchase previews and saved-order totals ---
 // Preview only; the API calculates and saves the authoritative purchase totals.
 function calculatePurchaseTotals(subtotal) {
     const subtotalCents = Math.round((subtotal + Number.EPSILON) * 100);

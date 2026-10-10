@@ -9,11 +9,13 @@ const orderExportButton = document.getElementById('orderExportButton');
 
 let displayedOrders = [];
 
-// --- Report refresh and page events ---
+// --- Loaded collection and refresh ---
 
 let orderHistory = [];
 let ordersLoading = false;
 
+// Clear prior results while loading; a failed request must not leave stale
+// orders exportable as if they were the latest server history.
 async function refreshOrderHistory() {
     if (ordersLoading) return;
     ordersLoading = true;

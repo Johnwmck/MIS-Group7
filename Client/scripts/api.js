@@ -1,5 +1,7 @@
 // Same-origin API access. No browser catalog or order fallback.
 
+// --- Explicit demo reset ---
+
 async function resetDemoInApi() {
     const response = await fetch('/api/demo/reset', { method: 'POST' });
     if (!response.ok) {
@@ -7,6 +9,8 @@ async function resetDemoInApi() {
         throw new Error(result.error || result.title || 'Unable to reset demo data.');
     }
 }
+
+// --- Catalog collection loading ---
 
 async function loadBooksFromApi() {
     const response = await fetch('/api/books');
@@ -34,6 +38,8 @@ async function loadOrdersFromApi() {
     return orders;
 }
 
+// A lost response does not prove a failed purchase. Mark ambiguous outcomes so
+// checkout can block blind retries without idempotency support on the server.
 async function createOrderInApi(request) {
     let response;
     let result;
@@ -65,6 +71,9 @@ async function createOrderInApi(request) {
     }
     return result;
 }
+
+// --- Individual catalog reads and mutations ---
+// Updates carry a revision token; HTTP 409 means the view must be refreshed.
 
 async function loadBookFromApi(bookId) {
     const response = await fetch('/api/books/' + bookId);

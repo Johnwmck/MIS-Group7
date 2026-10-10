@@ -5,12 +5,15 @@ namespace Team7Books.Api.Services;
 
 public static class SavedStateValidation
 {
+    // Used on startup and before commits. Historical order snapshots are checked
+    // against their own item data, not today's catalog prices or availability.
     public static void Validate(BookstoreState state)
     {
         void Require(bool valid, string message)
         {
             if (!valid) throw new InvalidDataException("Invalid saved bookstore state: " + message + " It was not reset.");
         }
+        // --- State shape and current catalog ---
         Require(state.Version == 1, "unsupported format version.");
         Require(state.Books is not null && state.Orders is not null, "missing collections.");
         var bookIds = new HashSet<int>();
@@ -18,6 +21,7 @@ public static class SavedStateValidation
             Require(book is not null && book.Id > 0 && bookIds.Add(book.Id) &&
                 CatalogValidation.GetError(book) == "", "invalid or duplicate catalog book.");
 
+        // --- Historical order identities, items, and monetary consistency ---
         var orderIds = new HashSet<int>();
         var highestReferencedBookId = bookIds.DefaultIfEmpty(0).Max();
         foreach (var order in state.Orders!)
@@ -61,6 +65,7 @@ public static class SavedStateValidation
                 throw new InvalidDataException($"Saved order {order.Id} overflows monetary calculations. It was not reset.", error);
             }
         }
+        // --- Safe next-ID counters ---
         // Deleted books need not exist in the catalog, but IDs referenced by
         // historical orders must never be reassigned to another book.
         Require(state.NextBookId > highestReferencedBookId &&

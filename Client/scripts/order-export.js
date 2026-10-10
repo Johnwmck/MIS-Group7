@@ -10,6 +10,8 @@ function escapeCsvValue(value) {
     return '"' + escapedValue + '"';
 }
 
+// Preserve identifiers/numeric-looking titles as text when opened in Excel.
+// This is spreadsheet display formatting, not catalog CSV serialization.
 function preserveExcelText(value) {
     const stringValue = String(value ?? '');
 
@@ -87,6 +89,8 @@ function buildOrderCsv(orders) {
         .join('\r\n');
 }
 
+// --- Browser download ---
+// Export only the supplied (currently displayed/filtered) order collection.
 function downloadOrderCsv(orders) {
     const csv = buildOrderCsv(orders);
     const blob = new Blob(

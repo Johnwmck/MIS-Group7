@@ -8,9 +8,12 @@ namespace Team7Books.Api.Controllers;
 [Route("api/books")]
 public class BooksController : ControllerBase
 {
+    // --- Shared store dependency ---
     private readonly BookstoreStore store;
 
     public BooksController(BookstoreStore store) { this.store = store; }
+
+    // --- Catalog reads ---
 
     [HttpGet]
     public ActionResult<List<Book>> Get()
@@ -36,6 +39,9 @@ public class BooksController : ControllerBase
             return Ok(CopyBook(book));
         }
     }
+
+    // --- Validated catalog mutations ---
+    // Each mutation uses a detached candidate; Commit saves before publishing.
 
     [HttpPost]
     public ActionResult<Book> Create([FromBody] Book newBook)
@@ -91,6 +97,8 @@ public class BooksController : ControllerBase
                 return NotFound(new { error = "Book not found." });
             }
 
+            // Compare under the same lock as purchases. A GET before PUT alone
+            // cannot prevent an intervening sale from making the form stale.
             if (updatedBook.Revision != store.Books[index].Revision)
                 return Conflict(new { error = "This book changed since you opened it. Refresh and reopen the edit form before saving." });
 
@@ -123,6 +131,7 @@ public class BooksController : ControllerBase
         }
     }
 
+    // --- Response snapshots ---
     // Responses are detached from mutable inventory before the lock is released.
     private static Book CopyBook(Book book) => new()
     {

@@ -77,6 +77,8 @@ function authenticateInternalUser(username, password) {
     };
 }
 
+// --- Tab-scoped sessions and role checks ---
+// Store identity/role, not credentials. auth.js rechecks the underlying account.
 function saveInternalSession(user) {
     const session = {
         userId: user.id,

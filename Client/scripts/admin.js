@@ -51,6 +51,8 @@ async function loadAdminCatalog() {
     }
 }
 
+// One busy boundary covers the mutation and reload; do not retry an ambiguous
+// network failure automatically because the mutation may already be saved.
 async function runAdminBookAction(action, successMessage) {
     if (adminBusy) {
         return false;
@@ -87,6 +89,7 @@ async function runAdminBookAction(action, successMessage) {
 }
 
 async function updateAdminBookField(bookId, field, value) {
+    // Use the revision displayed to the user, even though we fetch full details.
     const revision = bookList.find(function (book) { return book.id === bookId; })?.revision;
     await runAdminBookAction(async function () {
         const book = await loadBookFromApi(bookId);
@@ -287,6 +290,7 @@ const bookFormSeriesName = document.getElementById('bookFormSeriesName');
 const bookFormSeriesOrder = document.getElementById('bookFormSeriesOrder');
 let bookFormRevision = null;
 
+// Capture the displayed revision with the form so a later sale cannot be undone.
 function openBookForm(book) {
     bookFormRevision = book ? book.revision : null;
     bookFormError.classList.add('d-none');

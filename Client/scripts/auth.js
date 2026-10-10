@@ -1,4 +1,5 @@
-// Shared internal-page routing, session validation, and authorization.
+// Shared internal-page routing, session validation, and UI role checks.
+// Browser-only prototype guard; this does not authorize requests to the API.
 
 // --- Role routing and session validation ---
 
