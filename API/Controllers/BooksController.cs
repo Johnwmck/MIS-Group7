@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Team7Books.Api.Models;
+using Team7Books.Api.Services;
 
 namespace Team7Books.Api.Controllers;
 
@@ -7,87 +8,59 @@ namespace Team7Books.Api.Controllers;
 [Route("api/books")]
 public class BooksController : ControllerBase
 {
-    private static readonly List<Book> books = new List<Book>
-    {
-        new Book
-        {
-            Id = 1,
-            Isbn = "978-0-06-112008-4",
-            Title = "To Kill a Mockingbird",
-            Author = "Harper Lee",
-            Genre = "Fiction",
-            Price = 14.99m,
-            Inventory = 12,
-            Status = "Active",
-            Image = "https://www.publicdomainpictures.net/pictures/450000/velka/to-kill-a-mocking-bird.jpg",
-            Description = "A young girl observes courage and injustice as her father defends a Black man accused of a crime in a small Alabama town.",
-            ManualStockOverride = null
-        },
-        new Book
-        {
-            Id = 2,
-            Isbn = "978-0-7432-7356-5",
-            Title = "The Great Gatsby",
-            Author = "F. Scott Fitzgerald",
-            Genre = "Fiction",
-            Price = 12.99m,
-            Inventory = 8,
-            Status = "Active",
-            Image = "https://upload.wikimedia.org/wikipedia/commons/7/7a/The_Great_Gatsby_Cover_1925_Retouched.jpg",
-            Description = "A mysterious millionaire pursues a lost love amid the wealth and social ambition of the Jazz Age.",
-            ManualStockOverride = null
-        }
-    };
+    private readonly BookstoreStore store;
 
-    private static readonly object booksLock = new object();
-    private static int nextBookId = books.Max(book => book.Id) + 1;
+    public BooksController(BookstoreStore store) { this.store = store; }
 
     [HttpGet]
     public ActionResult<List<Book>> Get()
     {
-        lock (booksLock)
+        lock (store.SyncRoot)
         {
-            return Ok(books.ToList());
+            return Ok(store.Books.Select(CopyBook).ToList());
         }
     }
 
     [HttpGet("{id:int}")]
     public ActionResult<Book> GetById(int id)
     {
-        lock (booksLock)
+        lock (store.SyncRoot)
         {
-            var book = books.Find(book => book.Id == id);
+            var book = store.Books.Find(book => book.Id == id);
 
             if (book == null)
             {
                 return NotFound(new { error = "Book not found." });
             }
 
-            return Ok(book);
+            return Ok(CopyBook(book));
         }
     }
 
     [HttpPost]
     public ActionResult<Book> Create([FromBody] Book newBook)
     {
-        var error = GetBookValidationError(newBook);
+        newBook.Isbn = CatalogValidation.NormalizeIsbn(newBook.Isbn).ToUpperInvariant();
+        var error = CatalogValidation.GetError(newBook);
 
         if (error != "")
         {
             return BadRequest(new { error });
         }
 
-        lock (booksLock)
+        lock (store.SyncRoot)
         {
-            newBook.Id = nextBookId;
-            nextBookId++;
-
-            books.Add(newBook);
+            if (store.NextBookId == int.MaxValue)
+                return BadRequest(new { error = "No further book IDs are available." });
+            var candidate = store.CreateSnapshot();
+            newBook.Id = candidate.NextBookId++;
+            candidate.Books.Add(newBook);
+            store.Commit(candidate);
 
             return CreatedAtAction(
                 nameof(GetById),
                 new { id = newBook.Id },
-                newBook
+                CopyBook(newBook)
             );
         }
     }
@@ -100,69 +73,67 @@ public class BooksController : ControllerBase
             return BadRequest(new { error = "The URL and book IDs must match." });
         }
 
-        var error = GetBookValidationError(updatedBook);
+        updatedBook.Isbn = CatalogValidation.NormalizeIsbn(updatedBook.Isbn).ToUpperInvariant();
+        var error = CatalogValidation.GetError(updatedBook);
 
         if (error != "")
         {
             return BadRequest(new { error });
         }
 
-        lock (booksLock)
+        lock (store.SyncRoot)
         {
-            var index = books.FindIndex(book => book.Id == id);
+            var index = store.Books.FindIndex(book => book.Id == id);
 
             if (index == -1)
             {
                 return NotFound(new { error = "Book not found." });
             }
 
-            books[index] = updatedBook;
+            var candidate = store.CreateSnapshot();
+            candidate.Books[index] = updatedBook;
+            store.Commit(candidate);
 
-            return Ok(updatedBook);
+            return Ok(CopyBook(updatedBook));
         }
     }
 
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        lock (booksLock)
+        lock (store.SyncRoot)
         {
-            var book = books.Find(book => book.Id == id);
+            var book = store.Books.Find(book => book.Id == id);
 
             if (book == null)
             {
                 return NotFound(new { error = "Book not found." });
             }
 
-            books.Remove(book);
+            var candidate = store.CreateSnapshot();
+            candidate.Books.RemoveAll(book => book.Id == id);
+            store.Commit(candidate);
 
             return NoContent();
         }
     }
 
-    private static string GetBookValidationError(Book book)
+    // Responses are detached from mutable inventory before the lock is released.
+    private static Book CopyBook(Book book) => new()
     {
-        if (
-            string.IsNullOrWhiteSpace(book.Title) ||
-            string.IsNullOrWhiteSpace(book.Author) ||
-            string.IsNullOrWhiteSpace(book.Isbn) ||
-            string.IsNullOrWhiteSpace(book.Genre) ||
-            string.IsNullOrWhiteSpace(book.Image)
-        )
-        {
-            return "Required book information is missing.";
-        }
+        Id = book.Id,
+        Isbn = book.Isbn,
+        Title = book.Title,
+        Author = book.Author,
+        Genre = book.Genre,
+        Price = book.Price,
+        Inventory = book.Inventory,
+        Status = book.Status,
+        Image = book.Image,
+        Description = book.Description,
+        ManualStockOverride = book.ManualStockOverride,
+        SeriesName = book.SeriesName,
+        SeriesOrder = book.SeriesOrder
+    };
 
-        if (book.Price < 0 || book.Inventory < 0)
-        {
-            return "Price and inventory cannot be negative.";
-        }
-
-        if (book.Status != "Active" && book.Status != "Inactive")
-        {
-            return "Status must be Active or Inactive.";
-        }
-
-        return "";
-    }
 }

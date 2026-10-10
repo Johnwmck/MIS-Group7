@@ -7,7 +7,7 @@ const customerBestSellers = document.getElementById('customerBestSellers');
 const customerBestSellersEmpty = document.getElementById('customerBestSellersEmpty');
 const modalBookQuantity = document.getElementById('modalBookQuantity');
 
-const isApiPreview = new URLSearchParams(window.location.search).get('catalog') === 'api';
+let customerBusy = false;
 
 const catalogLoadMessage = document.getElementById('catalogLoadMessage');
 
@@ -45,7 +45,7 @@ function createBookCard(book) {
                 <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
                 <p class="card-text small">${getCustomerAvailability(book)}</p>
                 <button type="button" class="btn btn-primary btn-sm quick-add-button"
-                    ${outOfStock || isApiPreview ? 'disabled' : ''}>
+                    ${outOfStock || customerBusy ? 'disabled' : ''}>
                     Add to Cart
                 </button>
             </div>
@@ -61,6 +61,7 @@ function createBookCard(book) {
     });
 
     const quickAddButton = col.querySelector('.quick-add-button');
+    quickAddButton.dataset.bookId = book.id;
 
     quickAddButton.addEventListener('click', function (event) {
         event.stopPropagation();
@@ -82,16 +83,21 @@ function updateBookModal(book) {
         'Price: ' + currencyFormatter.format(book.price);
     document.getElementById('modalBookDescription').textContent =
         book.description || 'No description available yet.';
+    const series = document.getElementById('modalBookSeries');
+    series.textContent = book.seriesName
+        ? book.seriesName + (book.seriesOrder == null ? '' : ' — Reading sequence ' + book.seriesOrder)
+        : '';
+    series.classList.toggle('d-none', !book.seriesName);
 
     const bookOutOfStock = book.status !== 'Active' || isBookOutOfStock(book);
     modalBookQuantity.value = 1;
     modalBookQuantity.max = book.inventory;
-    modalBookQuantity.disabled = bookOutOfStock || isApiPreview;
+    modalBookQuantity.disabled = bookOutOfStock || customerBusy;
     const inventoryText = document.getElementById('modalBookInventory');
     inventoryText.textContent = getCustomerAvailability(book);
     inventoryText.classList.toggle('text-danger', bookOutOfStock);
-    document.getElementById('addToCartButton').disabled = bookOutOfStock || isApiPreview;
-    document.getElementById('buyNowButton').disabled = bookOutOfStock || isApiPreview;
+    document.getElementById('addToCartButton').disabled = bookOutOfStock || customerBusy;
+    document.getElementById('buyNowButton').disabled = bookOutOfStock || customerBusy;
 }
 
 // --- Catalog search, filtering, and sorting ---
@@ -182,75 +188,6 @@ function getVisibleCatalogBooks() {
     return visibleBooks;
 }
 
-// --- Customer Best Sellers ---
-
-function renderCustomerBestSellers() {
-    const orders = loadOrdersFromStorage();
-    const rankedItems = getBestSellingItems(orders);
-
-    const recommendations = rankedItems
-        .map(function (item) {
-            let book = null;
-
-            if (item.bookId !== null) {
-                book = bookList.find(function (book) {
-                    return book.id === item.bookId;
-                });
-            }
-
-            if (!book) {
-                book = bookList.find(function (book) {
-                    return book.title === item.title;
-                });
-            }
-
-            if (!book || book.status !== 'Active') {
-                return null;
-            }
-
-            return {
-                book: book,
-                quantitySold: item.quantity
-            };
-        })
-        .filter(function (recommendation) {
-            return recommendation !== null;
-        })
-        .slice(0, 5);
-
-    customerBestSellers.innerHTML = '';
-
-    recommendations.forEach(function (recommendation) {
-        const button = document.createElement('button');
-
-        button.type = 'button';
-        button.className =
-            'list-group-item list-group-item-action ' +
-            'd-flex justify-content-between align-items-center';
-
-        const title = document.createElement('span');
-        title.textContent = recommendation.book.title;
-
-        const sales = document.createElement('span');
-        sales.className = 'badge bg-primary rounded-pill';
-        sales.textContent =
-            recommendation.quantitySold + ' sold';
-
-        button.append(title, sales);
-
-        button.addEventListener('click', function () {
-            openBookDetails(recommendation.book);
-        });
-
-        customerBestSellers.appendChild(button);
-    });
-
-    customerBestSellersEmpty.classList.toggle(
-        'd-none',
-        recommendations.length > 0
-    );
-}
-
 // --- Catalog rendering and filter events ---
 
 function renderCatalog() {
@@ -293,30 +230,55 @@ function updateCartCount() {
         getCartItemCount(cartItems);
 }
 
-function addBookToCart(bookId, quantityToAdd = 1) {
-    if(isApiPreview) {
-        return;
-    }
-    const cartItems = loadCartFromStorage();
-    const existingItem = cartItems.find(function (item) {
-        return item.bookId === bookId;
+function setCustomerBusy(busy) {
+    customerBusy = busy;
+    bookContainer.querySelectorAll('.quick-add-button').forEach(function (button) {
+        const book = bookList.find(function (book) {
+            return book.id === Number(button.dataset.bookId);
+        });
+        button.disabled = busy || !book || isBookOutOfStock(book);
     });
+    modalBookQuantity.disabled = busy || !selectedBook ||
+        selectedBook.status !== 'Active' || isBookOutOfStock(selectedBook);
+    addToCartButton.disabled = modalBookQuantity.disabled;
+    buyNowButton.disabled = modalBookQuantity.disabled;
+}
 
-    const currentQuantity = existingItem ? existingItem.quantity : 0;
-    const quantity = currentQuantity + quantityToAdd;
-    const error = setCartQuantity(bookId, quantity);
-
-    if (error) {
-        showCartToast(error, 'warning');
+async function addBookToCart(bookId, quantityToAdd = 1) {
+    if (customerBusy) {
         return;
     }
+    setCustomerBusy(true);
+    try {
+        if (!Number.isInteger(quantityToAdd) || quantityToAdd < 1) {
+            showCartToast('Please choose a whole-number quantity of at least 1.', 'warning');
+            return;
+        }
+        const cartItems = loadCartFromStorage();
+        const existingItem = cartItems.find(function (item) {
+            return item.bookId === bookId;
+        });
 
-    updateCartCount();
-    const message = quantityToAdd === 1
-        ? 'Book added to your cart.'
-        : quantityToAdd + ' copies added to your cart.';
+        const currentQuantity = existingItem ? existingItem.quantity : 0;
+        const quantity = currentQuantity + quantityToAdd;
+        const error = await setCartQuantity(bookId, quantity);
 
-    showCartToast(message, 'success');
+        if (error) {
+            showCartToast(error, 'warning');
+            return;
+        }
+
+        updateCartCount();
+        const message = quantityToAdd === 1
+            ? 'Book added to your cart.'
+            : quantityToAdd + ' copies added to your cart.';
+
+        showCartToast(message, 'success');
+    } catch (error) {
+        showCartToast('Unable to update your cart. ' + error.message, 'warning');
+    } finally {
+        setCustomerBusy(false);
+    }
 }
 
 const addToCartButton = document.getElementById('addToCartButton');
@@ -336,59 +298,76 @@ addToCartButton.addEventListener('click', function () {
 
 const buyNowButton = document.getElementById('buyNowButton');
 
-buyNowButton.addEventListener('click', function () {
-    if (!selectedBook || isApiPreview) {
+buyNowButton.addEventListener('click', async function () {
+    if (!selectedBook || customerBusy) {
         return;
     }
-
-    // Reload the current catalog state rather than relying on the copy that
-    // was selected when the modal originally opened.
-    const books = loadBooksFromStorage();
-    const currentBook = books.find(function (book) {
-        return book.id === selectedBook.id;
-    });
-
+    const bookId = selectedBook.id;
     const quantity = modalBookQuantity.valueAsNumber;
-    const error = getCartQuantityError(currentBook, quantity);
+    setCustomerBusy(true);
+    try {
+        // Reload the current catalog state rather than relying on the copy that
+        // was selected when the modal originally opened.
+        const currentBook = await loadBookFromApi(bookId);
+        const error = getCartQuantityError(currentBook, quantity);
 
-    if (error) {
-        refreshCustomerCatalog();
-        showCartToast(error, 'warning');
-        return;
+        if (error) {
+            showCartToast(error, 'warning');
+            return;
+        }
+
+        saveCheckoutState('buyNow', [{
+            bookId: currentBook.id,
+            quantity: quantity,
+            price: currentBook.price
+        }]);
+
+        sessionStorage.removeItem('purchaseUncertain');
+        window.location.href = 'checkout.html';
+    } catch (error) {
+        showCartToast('Unable to start checkout. ' + error.message, 'warning');
+    } finally {
+        setCustomerBusy(false);
     }
-
-    saveCheckoutState('buyNow', [{
-        bookId: currentBook.id,
-        quantity: quantity,
-        price: currentBook.price
-    }]);
-
-    window.location.href = 'checkout.html';
 });
 
 // --- Page refresh and initialization ---
 
 async function refreshCustomerCatalog() {
+    if (customerBusy) {
+        return;
+    }
+    setCustomerBusy(true);
     catalogLoadMessage.textContent = 'Loading catalog...';
     catalogLoadMessage.classList.remove('d-none', 'alert-danger');
     catalogLoadMessage.classList.add('alert-info');
 
-    // Local order history does not describe sales from the sample API catalog.
-    customerBestSellers.closest('section').classList.toggle(
-        'd-none',
-        isApiPreview
-    );
+    customerBestSellers.closest('section').classList.remove('d-none');
+    customerBestSellers.innerHTML = '';
+    customerBestSellersEmpty.textContent = 'Loading Best Sellers...';
+    customerBestSellersEmpty.classList.remove('d-none');
+    catalogEmptyMessage.classList.add('d-none');
 
     try {
-        if (isApiPreview) {
-            bookList = await loadBooksFromApi();
-        } else {
-            bookList = loadBooksFromStorage();
-            renderCustomerBestSellers();
+        bookList = await loadBooksFromApi();
+        const reconciliation = await reconcileCart(bookList);
+        if (reconciliation.messages.length > 0) {
+            showCartToast(reconciliation.messages.join(' '), 'warning');
         }
 
         populateGenreFilter();
         renderCatalog();
+        try {
+            renderCustomerBestSellers(
+                await loadOrdersFromApi(), bookList,
+                customerBestSellers, customerBestSellersEmpty, openBookDetails
+            );
+            customerBestSellersEmpty.textContent = 'No best-selling books are available yet.';
+        } catch (error) {
+            customerBestSellers.innerHTML = '';
+            customerBestSellersEmpty.textContent = 'Unable to load Best Sellers. Refresh to retry.';
+            customerBestSellersEmpty.classList.remove('d-none');
+        }
 
         if (selectedBook) {
             selectedBook = bookList.find(function (book) {
@@ -406,11 +385,8 @@ async function refreshCustomerCatalog() {
             }
         }
 
-        catalogLoadMessage.textContent = isApiPreview
-            ? 'API catalog preview: browsing only. Purchasing is disabled.'
-            : '';
-
-        catalogLoadMessage.classList.toggle('d-none', !isApiPreview);
+        catalogLoadMessage.textContent = '';
+        catalogLoadMessage.classList.add('d-none');
     } catch (error) {
         bookList = [];
         selectedBook = null;
@@ -428,19 +404,13 @@ async function refreshCustomerCatalog() {
         catalogLoadMessage.classList.add('alert-danger');
 
         console.error(error);
+    } finally {
+        setCustomerBusy(false);
     }
 }
 
 window.addEventListener('pageshow', async function () {
     await refreshCustomerCatalog();
-
-    if (!isApiPreview) {
-        const result = reconcileCart();
-
-        if (result.messages.length > 0) {
-            showCartToast(result.messages.join(' '), 'warning');
-        }
-    }
 
     updateCartCount();
 });

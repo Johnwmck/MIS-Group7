@@ -276,6 +276,15 @@
                             </div>
                         </div>
                         <div class="mb-2">
+                            <label class="form-label" for="bookFormSeriesName">Series (optional)</label>
+                            <input type="text" class="form-control" id="bookFormSeriesName">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="bookFormSeriesOrder">Reading sequence (optional)</label>
+                            <input type="number" min="0" step="any" class="form-control" id="bookFormSeriesOrder">
+                            <small class="text-muted">Decimals allow prequels and books between main entries.</small>
+                        </div>
+                        <div class="mb-2">
                             <label class="form-label" for="bookFormImage">Image URL</label>
                             <input type="text" class="form-control" id="bookFormImage" required>
                         </div>
@@ -299,12 +308,19 @@
 
     <div class="container mb-4">
         <button id="resetCatalogButton" class="btn btn-sm btn-outline-danger">
-            Reset Browser Demo Data
+            Reset Demo Data
         </button>
         <!-- dev-only: delete or add "d-none" to the class list to hide -->
     </div>
 
-    <script src="scripts/data.js"></script>
+    <script src="scripts/book-utils.js"></script>
+    <script src="scripts/api.js"></script>
+    <script src="scripts/cart-state.js"></script>
+    <script src="scripts/checkout-state.js"></script>
+    <script src="scripts/internal-users.js"></script>
+    <script src="scripts/demo-reset.js"></script>
+    <script src="scripts/reporting.js"></script>
+    <script src="scripts/order-export.js"></script>
     <script src="scripts/navbar-scroll.js"></script>
     <script src="scripts/auth.js"></script>
     <script>

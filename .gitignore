@@ -2,4 +2,5 @@ PROJECT.md
 CLAUDE.md
 API/bin/
 API/obj/
+API/App_Data/
 .DS_Store

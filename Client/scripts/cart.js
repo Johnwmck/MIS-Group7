@@ -7,8 +7,16 @@ const cartMessages = document.getElementById('cartMessages');
 const cartEmptyMessage = document.getElementById('cartEmptyMessage');
 const cartContents = document.getElementById('cartContents');
 const cartTableBody = document.getElementById('cartTableBody');
-const cartTotal = document.getElementById('cartTotal');
 const checkoutButton = document.getElementById('checkoutButton');
+let cartBusy = false;
+
+function setCartBusy(busy) {
+    cartBusy = busy;
+    checkoutButton.disabled = busy || loadCartFromStorage().length === 0;
+    cartTableBody.querySelectorAll('input, button').forEach(function (control) {
+        control.disabled = busy;
+    });
+}
 
 // --- Cart feedback and rendering ---
 
@@ -19,88 +27,105 @@ function showCartMessage(message, success = false) {
     cartMessages.classList.toggle('alert-warning', !success);
 }
 
-function renderCart(extraMessages = []) {
-    const result = reconcileCart();
-    const books = loadBooksFromStorage();
-    const cartItems = result.cartItems;
+async function renderCart(extraMessages = []) {
+    if (cartBusy) return null;
+    setCartBusy(true);
+    showCartMessage('Loading cart...');
+    try {
+        const books = await loadBooksFromApi();
+        const result = await reconcileCart(books);
+        const cartItems = result.cartItems;
 
-    cartCount.textContent = getCartItemCount(cartItems);
-    showCartMessage(extraMessages.concat(result.messages).join(' '));
-    checkoutButton.disabled = cartItems.length === 0;
+        cartCount.textContent = getCartItemCount(cartItems);
+        showCartMessage(extraMessages.concat(result.messages).join(' '));
+        checkoutButton.disabled = cartItems.length === 0;
 
-    cartEmptyMessage.classList.toggle('d-none', cartItems.length > 0);
-    cartContents.classList.toggle('d-none', cartItems.length === 0);
-    cartTableBody.innerHTML = '';
+        cartEmptyMessage.classList.toggle('d-none', cartItems.length > 0);
+        cartContents.classList.toggle('d-none', cartItems.length === 0);
+        cartTableBody.innerHTML = '';
 
-    let total = 0;
+        let total = 0;
 
-    cartItems.forEach(function (item) {
-        const book = books.find(function (book) {
-            return book.id === item.bookId;
+        cartItems.forEach(function (item) {
+            const book = books.find(function (book) {
+                return book.id === item.bookId;
+            });
+
+            const subtotal = book.price * item.quantity;
+            total += subtotal;
+
+            const row = document.createElement('tr');
+            const values = [
+                book.title,
+                currencyFormatter.format(book.price),
+                item.quantity,
+                currencyFormatter.format(subtotal),
+            ];
+
+            values.forEach(function (value, index) {
+                const cell = document.createElement('td');
+
+                if (index === 0) {
+                    const details = document.createElement('div');
+                    details.className = 'd-flex align-items-center gap-2';
+                    const cover = document.createElement('img');
+                    cover.src = book.image;
+                    cover.alt = book.title;
+                    cover.width = 40;
+                    cover.height = 55;
+                    cover.style.objectFit = 'contain';
+                    const text = document.createElement('div');
+                    const title = document.createElement('div');
+                    title.textContent = book.title;
+                    const author = document.createElement('small');
+                    author.className = 'text-muted';
+                    author.textContent = book.author;
+                    text.append(title, author);
+                    details.append(cover, text);
+                    cell.appendChild(details);
+                } else if (index === 2) {
+                    cell.appendChild(createQuantityControls(item, book));
+                } else {
+                    cell.textContent = value;
+                }
+
+                row.appendChild(cell);
+            });
+
+            const removeCell = document.createElement('td');
+            const removeButton = document.createElement('button');
+
+            removeButton.type = 'button';
+            removeButton.className = 'btn btn-sm btn-outline-danger';
+            removeButton.textContent = 'Remove';
+            removeButton.setAttribute('aria-label', 'Remove ' + book.title);
+
+            removeButton.addEventListener('click', function () {
+                if (cartBusy) return;
+                removeCartItem(item.bookId);
+                renderCart();
+            });
+
+            removeCell.appendChild(removeButton);
+            row.appendChild(removeCell);
+
+            cartTableBody.appendChild(row);
         });
 
-        const subtotal = book.price * item.quantity;
-        total += subtotal;
-
-        const row = document.createElement('tr');
-        const values = [
-            book.title,
-            currencyFormatter.format(book.price),
-            item.quantity,
-            currencyFormatter.format(subtotal),
-        ];
-
-        values.forEach(function (value, index) {
-            const cell = document.createElement('td');
-
-            if (index === 0) {
-                const details = document.createElement('div');
-                details.className = 'd-flex align-items-center gap-2';
-                const cover = document.createElement('img');
-                cover.src = book.image;
-                cover.alt = book.title;
-                cover.width = 40;
-                cover.height = 55;
-                cover.style.objectFit = 'contain';
-                const text = document.createElement('div');
-                const title = document.createElement('div');
-                title.textContent = book.title;
-                const author = document.createElement('small');
-                author.className = 'text-muted';
-                author.textContent = book.author;
-                text.append(title, author);
-                details.append(cover, text);
-                cell.appendChild(details);
-            } else if (index === 2) {
-                cell.appendChild(createQuantityControls(item, book));
-            } else {
-                cell.textContent = value;
-            }
-
-            row.appendChild(cell);
-        });
-
-        const removeCell = document.createElement('td');
-        const removeButton = document.createElement('button');
-
-        removeButton.type = 'button';
-        removeButton.className = 'btn btn-sm btn-outline-danger';
-        removeButton.textContent = 'Remove';
-        removeButton.setAttribute('aria-label', 'Remove ' + book.title);
-
-        removeButton.addEventListener('click', function () {
-            removeCartItem(item.bookId);
-            renderCart();
-        });
-
-        removeCell.appendChild(removeButton);
-        row.appendChild(removeCell);
-
-        cartTableBody.appendChild(row);
-    });
-
-    cartTotal.textContent = 'Total: ' + currencyFormatter.format(total);
-    return { cartItems: cartItems, books: books, messages: result.messages };
+        renderPurchaseTotals('cart', calculatePurchaseTotals(total));
+        return { cartItems: cartItems, books: books, messages: result.messages };
+    } catch (error) {
+        cartTableBody.innerHTML = '';
+        cartContents.classList.add('d-none');
+        cartEmptyMessage.classList.add('d-none');
+        cartCount.textContent = getCartItemCount(loadCartFromStorage());
+        showCartMessage('Unable to load your cart. Your saved cart is preserved. ' +
+            'Check the connection and refresh. ' + error.message);
+        return null;
+    } finally {
+        setCartBusy(false);
+        if (cartContents.classList.contains('d-none')) checkoutButton.disabled = true;
+    }
 }
 
 // --- Quantity controls ---
@@ -130,15 +155,20 @@ function createQuantityControls(item, book) {
     decreaseButton.setAttribute('aria-label', 'Decrease quantity for ' + book.title);
     increaseButton.setAttribute('aria-label', 'Increase quantity for ' + book.title);
 
-    function applyQuantity(quantity) {
-        const error = setCartQuantity(item.bookId, quantity);
-
-        if (error) {
-            renderCart([error]);
+    async function applyQuantity(quantity) {
+        if (cartBusy) return;
+        setCartBusy(true);
+        let messages = [];
+        try {
+            const error = await setCartQuantity(item.bookId, quantity);
+            if (error) messages.push(error);
+        } catch (error) {
+            showCartMessage('Unable to change quantity. Your cart is preserved. ' + error.message);
             return;
+        } finally {
+            setCartBusy(false);
         }
-
-        renderCart();
+        await renderCart(messages);
     }
 
     decreaseButton.addEventListener('click', function () {
@@ -162,7 +192,8 @@ function createQuantityControls(item, book) {
 // --- Checkout routing ---
 
 // Do not silently replace a custom quantity that the customer has not applied yet.
-checkoutButton.addEventListener('click', function () {
+checkoutButton.addEventListener('click', async function () {
+    if (cartBusy) return;
     const hasUnappliedQuantity = Array.from(
         cartTableBody.querySelectorAll('input')
     ).some(function (input) {
@@ -176,9 +207,9 @@ checkoutButton.addEventListener('click', function () {
         return;
     }
 
-    const state = renderCart();
+    const state = await renderCart();
 
-    if (state.cartItems.length === 0 || state.messages.length > 0) {
+    if (!state || state.cartItems.length === 0 || state.messages.length > 0) {
         return;
     }
 
@@ -195,6 +226,7 @@ checkoutButton.addEventListener('click', function () {
     });
 
     saveCheckoutState('cart', checkoutItems);
+    sessionStorage.removeItem('purchaseUncertain');
     window.location.href = 'checkout.html';
 });
 

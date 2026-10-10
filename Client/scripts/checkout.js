@@ -1,4 +1,4 @@
-// Shared checkout page for saved-cart and Buy Now purchases.
+// API-backed checkout review and server order submission.
 
 // --- Page state and DOM references ---
 
@@ -8,17 +8,14 @@ const checkoutContent = document.getElementById('checkoutContent');
 const checkoutForm = document.getElementById('checkoutForm');
 const placeOrderButton = document.getElementById('placeOrderButton');
 const checkoutItems = document.getElementById('checkoutItems');
-const checkoutTotal = document.getElementById('checkoutTotal');
-const customerNameInput = document.getElementById('customerName');
-const customerEmailInput = document.getElementById('customerEmail');
 const orderConfirmation = document.getElementById('orderConfirmation');
-const confirmationCustomerName = document.getElementById('confirmationCustomerName');
-const confirmationOrderId = document.getElementById('confirmationOrderId');
-const confirmationTotal = document.getElementById('confirmationTotal');
 
 let checkoutState = loadCheckoutState();
+let checkoutBusy = false;
+let checkoutReady = false;
+let purchaseUncertain = sessionStorage.getItem('purchaseUncertain') === 'true';
 
-// --- Checkout-state validation and messages ---
+// --- Validation and feedback ---
 
 function showCheckoutMessage(message) {
     checkoutMessage.textContent = message;
@@ -26,211 +23,165 @@ function showCheckoutMessage(message) {
 }
 
 function hasValidCheckoutState(state) {
-    if (!state) {
-        return false;
-    }
-
-    if (state.mode !== 'cart' && state.mode !== 'buyNow') {
-        return false;
-    }
-
-    if (!Array.isArray(state.items) || state.items.length === 0) {
-        return false;
-    }
-
-    return state.items.every(function (item) {
-        return Number.isInteger(item.bookId) &&
-            Number.isInteger(item.quantity) &&
-            item.quantity > 0 &&
-            typeof item.price === 'number' &&
-            Number.isFinite(item.price) &&
-            item.price >= 0;
-    });
+    return state && (state.mode === 'cart' || state.mode === 'buyNow') &&
+        Array.isArray(state.items) && state.items.length > 0 &&
+        state.items.every(function (item) {
+            return item && Number.isInteger(item.bookId) &&
+                Number.isInteger(item.quantity) && item.quantity > 0 &&
+                Number.isFinite(item.price) && item.price >= 0;
+        });
 }
 
 function cartMatchesCheckout(items) {
-    const currentCart = loadCartFromStorage();
-
-    if (currentCart.length !== items.length) {
-        return false;
-    }
-
-    return items.every(function (checkoutItem) {
-        return currentCart.some(function (cartItem) {
-            return cartItem.bookId === checkoutItem.bookId && cartItem.quantity === checkoutItem.quantity;
+    const cart = loadCartFromStorage();
+    return cart.length === items.length && items.every(function (item) {
+        return cart.some(function (entry) {
+            return entry && entry.bookId === item.bookId && entry.quantity === item.quantity;
         });
     });
 }
 
-function invalidateCheckout(message) {
-    clearCheckoutState();
-    checkoutState = null;
+// --- Checkout review ---
 
-    checkoutContent.classList.add('d-none');
-    orderConfirmation.classList.add('d-none');
-    placeOrderButton.disabled = true;
-
-    showCheckoutMessage(message);
-}
-
-// --- Checkout review rendering ---
-
-function renderCheckoutReview() {
+async function renderCheckoutReview() {
+    if (checkoutBusy) return;
+    checkoutBusy = true;
+    checkoutReady = false;
     checkoutContent.classList.add('d-none');
     orderConfirmation.classList.add('d-none');
     checkoutItems.innerHTML = '';
     placeOrderButton.disabled = true;
 
-    if (!hasValidCheckoutState(checkoutState)) {
-        checkoutBackLink.href = 'index.html';
-        showCheckoutMessage(
-            'There is no active checkout to review. Please return to the catalog.'
-        );
-        return;
-    }
-
-    checkoutBackLink.href =
-        checkoutState.mode === 'cart' ? 'cart.html' : 'index.html';
-
-    const books = loadBooksFromStorage();
-    let total = 0;
-
-    for (const item of checkoutState.items) {
-        const book = books.find(function (book) {
-            return book.id === item.bookId;
-        });
-
-        if (!book) {
-            showCheckoutMessage(
-                'A book in this checkout is no longer in the catalog. ' +
-                'Please return and review your selection.'
-            );
+    try {
+        if (!hasValidCheckoutState(checkoutState)) {
+            checkoutBackLink.href = 'index.html';
+            showCheckoutMessage('There is no active checkout to review. Please return to the catalog.');
+            return;
+        }
+        checkoutBackLink.href = checkoutState.mode === 'cart' ? 'cart.html' : 'index.html';
+        showCheckoutMessage('Loading checkout...');
+        const books = await loadBooksFromApi();
+        if (checkoutState.mode === 'cart' && !cartMatchesCheckout(checkoutState.items)) {
+            showCheckoutMessage('Your cart changed. Please return to your cart and review it again.');
             return;
         }
 
-        const subtotal = item.price * item.quantity;
-        total += subtotal;
+        // Validate all items before updating the review snapshot.
+        const reviewedItems = [];
+        for (const item of checkoutState.items) {
+            const book = books.find(function (book) { return book.id === item.bookId; });
+            const error = getCartQuantityError(book, item.quantity);
+            if (error) {
+                showCheckoutMessage(error + ' Please return and review your selection.');
+                return;
+            }
+            reviewedItems.push({ bookId: book.id, quantity: item.quantity, price: book.price });
+        }
+        const pricesChanged = reviewedItems.some(function (item, index) {
+            return item.price !== checkoutState.items[index].price;
+        });
+        saveCheckoutState(checkoutState.mode, reviewedItems);
+        checkoutState = loadCheckoutState();
 
-        const row = document.createElement('tr');
-
-        const titleCell = document.createElement('td');
-        titleCell.textContent = book.title;
-
-        const quantityCell = document.createElement('td');
-        quantityCell.textContent = item.quantity;
-
-        const priceCell = document.createElement('td');
-        priceCell.textContent = currencyFormatter.format(item.price);
-
-        const subtotalCell = document.createElement('td');
-        subtotalCell.textContent = currencyFormatter.format(subtotal);
-
-        row.append(
-            titleCell,
-            quantityCell,
-            priceCell,
-            subtotalCell
-        );
-
-        checkoutItems.appendChild(row);
+        let total = 0;
+        reviewedItems.forEach(function (item) {
+            const book = books.find(function (book) { return book.id === item.bookId; });
+            const subtotal = item.price * item.quantity;
+            total += subtotal;
+            const row = document.createElement('tr');
+            [book.title, item.quantity, currencyFormatter.format(item.price),
+            currencyFormatter.format(subtotal)].forEach(function (value) {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+            checkoutItems.appendChild(row);
+        });
+        renderPurchaseTotals('checkout', calculatePurchaseTotals(total));
+        checkoutContent.classList.remove('d-none');
+        checkoutReady = !purchaseUncertain;
+        placeOrderButton.disabled = !checkoutReady;
+        showCheckoutMessage(purchaseUncertain
+            ? 'A previous purchase could not be confirmed. Check order history before retrying. Start a new checkout only after verifying it.'
+            : pricesChanged ? 'Prices were updated to the current catalog. Please review before placing your order.' : '');
+    } catch (error) {
+        showCheckoutMessage('Unable to load checkout. Your selection and cart are preserved. ' +
+            'Check the connection and refresh. ' + error.message);
+    } finally {
+        checkoutBusy = false;
     }
-
-    checkoutTotal.textContent =
-        'Total: ' + currencyFormatter.format(total);
-
-    showCheckoutMessage('');
-    checkoutContent.classList.remove('d-none');
-
-    placeOrderButton.disabled = false;
 }
 
-// --- Final purchase submission ---
+// --- Submission boundary and page initialization ---
 
-checkoutForm.addEventListener('submit', function (event) {
+checkoutForm.addEventListener('submit', async function (event) {
     event.preventDefault();
-
-    if (!hasValidCheckoutState(checkoutState)) {
-        invalidateCheckout(
-            'This checkout is no longer active. Please return and review your selection.'
-        );
+    if (checkoutBusy || !checkoutReady || purchaseUncertain) return;
+    if (!hasValidCheckoutState(checkoutState) ||
+        JSON.stringify(loadCheckoutState()) !== JSON.stringify(checkoutState) ||
+        (checkoutState.mode === 'cart' && !cartMatchesCheckout(checkoutState.items))) {
+        checkoutReady = false;
+        placeOrderButton.disabled = true;
+        showCheckoutMessage('Your selection changed. Return and review it before purchasing.');
         return;
     }
-
     const customerInfo = {
-        name: customerNameInput.value,
-        email: customerEmailInput.value
+        name: document.getElementById('customerName').value,
+        email: document.getElementById('customerEmail').value
     };
-
     const customerError = getCustomerInformationError(customerInfo);
+    if (customerError) { showCheckoutMessage(customerError); return; }
 
-    if (customerError) {
-        showCheckoutMessage(customerError);
-        return;
-    }
-
-    if (
-        checkoutState.mode === 'cart' &&
-        !cartMatchesCheckout(checkoutState.items)
-    ) {
-        invalidateCheckout(
-            'Your cart changed during checkout. ' +
-            'Please return to your cart and review it again.'
-        );
-        return;
-    }
-
-    // Prevent a rapid second submission while the transaction runs.
+    checkoutBusy = true;
     placeOrderButton.disabled = true;
-
-    const checkoutMode = checkoutState.mode;
-    const result = purchaseBooks(checkoutState.items, customerInfo);
-
-    if (result.error) {
-        invalidateCheckout(result.error + ' Please return and review your selection.');
+    showCheckoutMessage('Placing order...');
+    let order;
+    try {
+        // Survives a refresh/navigation while the request is still in flight.
+        sessionStorage.setItem('purchaseUncertain', 'true');
+        order = await createOrderInApi({
+            customerName: customerInfo.name.trim(),
+            customerEmail: customerInfo.email.trim(),
+            items: checkoutState.items
+        });
+    } catch (error) {
+        purchaseUncertain = Boolean(error.uncertain);
+        if (purchaseUncertain) sessionStorage.setItem('purchaseUncertain', 'true');
+        else sessionStorage.removeItem('purchaseUncertain');
+        checkoutReady = false;
+        checkoutBusy = false;
+        showCheckoutMessage(error.message + (purchaseUncertain
+            ? ' Your selection is preserved. Do not submit again until you verify the result.'
+            : ' Your selection is preserved. Refresh or return to review it again.'));
         return;
     }
 
-    let reconciliationMessages = [];
-
-    if (checkoutMode === 'cart') {
-        saveCartToStorage([]);
-    } else {
-        const reconciliationResult = reconcileCart();
-        reconciliationMessages = reconciliationResult.messages;
-    }
-
-    clearCheckoutState();
-    checkoutState = null;
-
+    // The server has committed. Cleanup failure must never look like purchase failure.
+    checkoutReady = false;
     checkoutContent.classList.add('d-none');
-
-    confirmationCustomerName.textContent = result.order.customerName;
-    confirmationOrderId.textContent = result.order.id;
-    confirmationTotal.textContent = currencyFormatter.format(result.order.total);
-
+    document.getElementById('confirmationCustomerName').textContent = order.customerName;
+    document.getElementById('confirmationOrderId').textContent = order.id;
+    renderPurchaseTotals('confirmation', getOrderTotals(order));
     orderConfirmation.classList.remove('d-none');
-
-    if (reconciliationMessages.length > 0) {
-        showCheckoutMessage(
-            'Your saved cart was updated after this purchase. ' +
-            reconciliationMessages.join(' ')
-        );
-    } else {
-        showCheckoutMessage('');
+    const mode = checkoutState.mode;
+    checkoutState = null;
+    try {
+        clearCheckoutState();
+        sessionStorage.removeItem('purchaseUncertain');
+        if (mode === 'cart') saveCartToStorage([]);
+        const reconciliation = mode === 'buyNow' ? await reconcileCart() : { messages: [] };
+        showCheckoutMessage(reconciliation.messages.join(' '));
+    } catch (error) {
+        showCheckoutMessage('Your order was placed. Saved-cart cleanup could not finish; review your cart before buying again.');
+    } finally {
+        checkoutBusy = false;
     }
 });
 
-// --- Page initialization and history restoration ---
-
 renderCheckoutReview();
-
-// Re-read session state when the browser restores this page from its
-// back-forward cache instead of performing a normal page load.
 window.addEventListener('pageshow', function (event) {
-    if (!event.persisted) {
-        return;
+    if (event.persisted) {
+        checkoutState = loadCheckoutState();
+        renderCheckoutReview();
     }
-
-    checkoutState = loadCheckoutState();
-    renderCheckoutReview();
 });

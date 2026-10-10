@@ -34,7 +34,7 @@ async function loadAdminCatalog() {
 
     try {
         bookList = await loadBooksFromApi();
-        renderStats();
+        await renderStats(bookList, { statsSummaryRow, lowStockList, bestSellersList });
         showAdminMessage('');
     } catch (error) {
         bookList = [];
@@ -63,7 +63,7 @@ async function runAdminBookAction(action, successMessage) {
         await action();
 
         bookList = await loadBooksFromApi();
-        renderStats();
+        await renderStats(bookList, { statsSummaryRow, lowStockList, bestSellersList });
         showAdminMessage(successMessage);
 
         return true;
@@ -166,8 +166,8 @@ function renderInventory() {
         row.querySelector('.update-price-btn').addEventListener('click', function () {
             const price = row.querySelector('.price-input').valueAsNumber;
 
-            if (!Number.isFinite(price) || price < 0) {
-                showAdminMessage('Price must be zero or greater.', true);
+            if (!isValidBookPrice(price)) {
+                showAdminMessage('Price must be nonnegative with no more than two decimal places.', true);
                 return;
             }
 
@@ -238,19 +238,27 @@ function applyTitleFilter() {
 
 const resetCatalogButton = document.getElementById('resetCatalogButton');
 
-// Reset all persistent demo data while preserving the current Admin session.
-resetCatalogButton.addEventListener('click', function () {
+// Restore server seeds and clear demo orders; retain the initiating Admin session.
+resetCatalogButton.addEventListener('click', async function () {
+    if (adminBusy) return;
     const confirmed = window.confirm(
-        'Reset this browser’s demo orders, cart, checkout, accounts, and legacy catalog? ' +
-        'The API catalog will not change.'
+        'Restore all books from the seed CSV and delete all completed demo orders? ' +
+        'This also clears this browser\'s cart, checkout, and demo accounts. Your Admin session stays signed in.'
     );
 
     if (!confirmed) {
         return;
     }
 
-    resetDemoData();
-    window.location.reload();
+    setAdminBusy(true);
+    showAdminMessage('Resetting demo data...');
+    try {
+        await resetDemoState();
+        window.location.reload();
+    } catch (error) {
+        showAdminMessage('Reset could not be confirmed. Refresh before retrying. ' + error.message, true);
+        setAdminBusy(false);
+    }
 });
 
 titleSearchInput.addEventListener('input', applyTitleFilter);
@@ -273,6 +281,8 @@ const bookFormPrice = document.getElementById('bookFormPrice');
 const bookFormInventory = document.getElementById('bookFormInventory');
 const bookFormImage = document.getElementById('bookFormImage');
 const bookFormStatus = document.getElementById('bookFormStatus');
+const bookFormSeriesName = document.getElementById('bookFormSeriesName');
+const bookFormSeriesOrder = document.getElementById('bookFormSeriesOrder');
 
 function openBookForm(book) {
     bookFormError.classList.add('d-none');
@@ -288,6 +298,8 @@ function openBookForm(book) {
         bookFormInventory.value = book.inventory;
         bookFormImage.value = book.image;
         bookFormStatus.value = book.status;
+        bookFormSeriesName.value = book.seriesName || '';
+        bookFormSeriesOrder.value = book.seriesOrder ?? '';
     } else {
         bookFormModalTitle.textContent = 'Add Book';
         bookForm.reset();
@@ -314,7 +326,9 @@ document.getElementById('saveBookButton').addEventListener('click', async functi
         price: bookFormPrice.valueAsNumber,
         inventory: bookFormInventory.valueAsNumber,
         image: bookFormImage.value.trim(),
-        status: bookFormStatus.value
+        status: bookFormStatus.value,
+        seriesName: bookFormSeriesName.value.trim() || null,
+        seriesOrder: bookFormSeriesOrder.value === '' ? null : bookFormSeriesOrder.valueAsNumber
     };
 
     const invalid =
@@ -323,15 +337,17 @@ document.getElementById('saveBookButton').addEventListener('click', async functi
         !values.genre ||
         !values.isbn ||
         !values.image ||
-        !Number.isFinite(values.price) ||
-        values.price < 0 ||
+        !isValidBookPrice(values.price) ||
         !Number.isInteger(values.inventory) ||
-        values.inventory < 0;
+        values.inventory < 0 ||
+        (values.seriesOrder !== null &&
+            (!Number.isFinite(values.seriesOrder) || values.seriesOrder < 0 || !values.seriesName));
 
     if (invalid) {
         bookFormError.textContent =
-            'Complete all required fields. Price must be nonnegative, ' +
-            'and inventory must be a nonnegative whole number.';
+            'Complete all required fields. Price must be nonnegative with at most two decimal places, ' +
+            'and inventory must be a nonnegative whole number. ' +
+            'Reading sequence must be nonnegative and requires a series name.';
         bookFormError.classList.remove('d-none');
         return;
     }
@@ -361,72 +377,15 @@ document.getElementById('saveBookButton').addEventListener('click', async functi
     }
 });
 
-// --- Reporting dashboard ---
+// --- Reporting targets ---
 
 const statsSummaryRow = document.getElementById('statsSummaryRow');
 const lowStockList = document.getElementById('lowStockList');
 const bestSellersList = document.getElementById('bestSellersList');
 
-function statCard(label, value) {
-    return `
-        <div class="col">
-            <div class="card text-center h-100">
-                <div class="card-body">
-                    <div class="fs-4 fw-bold">${value}</div>
-                    <div class="text-muted small">${label}</div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function renderStats() {
-    const totalInventoryValue = bookList.reduce(function (sum, book) {
-        return sum + book.price * book.inventory;
-    }, 0);
-
-    const lowStockBooks = bookList.filter(function (book) {
-        return book.status === 'Active' &&
-            (isBookOutOfStock(book) || isBookLowStock(book));
-    }).sort(function (a, b) {
-        return a.title.localeCompare(b.title);
-    });
-
-    const outOfStockBooks = bookList.filter(isBookOutOfStock);
-
-    const orders = loadOrdersFromStorage();
-    const ordersPlaced = orders.length;
-    const revenue = orders.reduce(function (sum, order) { return sum + (order.total || 0); }, 0);
-
-    const bestSellers = getBestSellingItems(orders, 5);
-
-    statsSummaryRow.innerHTML =
-        statCard('Total Inventory Value', currencyFormatter.format(totalInventoryValue)) +
-        statCard('Low Stock Items', lowStockBooks.length) +
-        statCard('Out of Stock Items', outOfStockBooks.length) +
-        statCard('Orders Placed', ordersPlaced) +
-        statCard('Revenue', currencyFormatter.format(revenue));
-
-    lowStockList.innerHTML = lowStockBooks.length
-        ? lowStockBooks.map(function (book) {
-            return `<li class="list-group-item d-flex justify-content-between">
-                <span>${book.title}</span>
-                <span class="text-muted">
-                    ${isBookOutOfStock(book) ? 'Out of stock &middot; ' : ''}${book.inventory} left
-                </span>
-            </li>`;
-        }).join('')
-        : '<li class="list-group-item text-muted">No low-stock items.</li>';
-
-    bestSellersList.innerHTML = bestSellers.length
-        ? bestSellers.map(function (item) {
-            return `<li class="list-group-item d-flex justify-content-between">
-                <span>${item.title}</span><span class="text-muted">${item.quantity} sold</span>
-            </li>`;
-        }).join('')
-        : '<li class="list-group-item text-muted">No orders yet.</li>';
-}
-
 // --- Page initialization ---
 
 loadAdminCatalog();
+window.addEventListener('pageshow', function (event) {
+    if (event.persisted && !adminBusy) loadAdminCatalog();
+});

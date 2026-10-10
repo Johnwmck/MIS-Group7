@@ -65,7 +65,7 @@
                                 This prototype does not collect payment information.
                             </p>
 
-                            <button type="submit" class="btn btn-primary" id="placeOrderButton">
+                            <button type="submit" class="btn btn-primary" id="placeOrderButton" disabled>
                                 Place Order
                             </button>
                         </form>
@@ -93,7 +93,11 @@
                             </table>
                         </div>
 
-                        <p class="fs-5 fw-bold text-end mb-0" id="checkoutTotal"></p>
+                        <div class="text-end">
+                            <div>Subtotal: <span id="checkoutSubtotal"></span></div>
+                            <div><span id="checkoutTaxLabel">Sales tax (10%)</span>: <span id="checkoutTax"></span></div>
+                            <div class="fs-5 fw-bold">Total: <span id="checkoutTotal"></span></div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -109,19 +113,23 @@
                     <strong>Order ID:</strong>
                     <span id="confirmationOrderId"></span>
                 </p>
-                <p>
-                    <strong>Total:</strong>
-                    <span id="confirmationTotal"></span>
-                </p>
+                <div class="mb-3">
+                    <div>Subtotal: <span id="confirmationSubtotal"></span></div>
+                    <div><span id="confirmationTaxLabel">Sales tax (10%)</span>: <span id="confirmationTax"></span></div>
+                    <div class="fw-bold">Total: <span id="confirmationTotal"></span></div>
+                </div>
 
                 <a class="btn btn-primary" href="index.html">Continue Shopping</a>
             </div>
         </section>
     </main>
 
-    <script src="scripts/data.js"></script>
+    <script src="scripts/book-utils.js?v=tax-breakdown-1"></script>
+    <script src="scripts/api.js"></script>
+    <script src="scripts/cart-state.js"></script>
+    <script src="scripts/checkout-state.js"></script>
     <script src="scripts/navbar-scroll.js"></script>
-    <script src="scripts/checkout.js"></script>
+    <script src="scripts/checkout.js?v=tax-breakdown-1"></script>
 </body>
 
 </html>
