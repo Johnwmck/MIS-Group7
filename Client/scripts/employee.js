@@ -137,10 +137,12 @@ async function saveEmployeeBookChange(bookId, field, value) {
     inventoryBusy = true;
     renderInventory();
     showInventoryMessage('Saving...');
+    const revision = bookList.find(function (book) { return book.id === bookId; })?.revision;
 
     try {
         const currentBook = await loadBookFromApi(bookId);
         currentBook[field] = value;
+        currentBook.revision = revision;
 
         const savedBook = await updateBookInApi(currentBook);
 

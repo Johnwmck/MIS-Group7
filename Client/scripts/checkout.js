@@ -168,7 +168,7 @@ checkoutForm.addEventListener('submit', async function (event) {
     try {
         clearCheckoutState();
         sessionStorage.removeItem('purchaseUncertain');
-        if (mode === 'cart') saveCartToStorage([]);
+        if (mode === 'cart') subtractPurchasedCartItems(order.items);
         const reconciliation = mode === 'buyNow' ? await reconcileCart() : { messages: [] };
         showCheckoutMessage(reconciliation.messages.join(' '));
     } catch (error) {

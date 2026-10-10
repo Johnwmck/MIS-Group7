@@ -54,6 +54,7 @@ public class BooksController : ControllerBase
                 return BadRequest(new { error = "No further book IDs are available." });
             var candidate = store.CreateSnapshot();
             newBook.Id = candidate.NextBookId++;
+            newBook.Revision = Guid.NewGuid();
             candidate.Books.Add(newBook);
             store.Commit(candidate);
 
@@ -90,7 +91,11 @@ public class BooksController : ControllerBase
                 return NotFound(new { error = "Book not found." });
             }
 
+            if (updatedBook.Revision != store.Books[index].Revision)
+                return Conflict(new { error = "This book changed since you opened it. Refresh and reopen the edit form before saving." });
+
             var candidate = store.CreateSnapshot();
+            updatedBook.Revision = Guid.NewGuid();
             candidate.Books[index] = updatedBook;
             store.Commit(candidate);
 
@@ -122,6 +127,7 @@ public class BooksController : ControllerBase
     private static Book CopyBook(Book book) => new()
     {
         Id = book.Id,
+        Revision = book.Revision,
         Isbn = book.Isbn,
         Title = book.Title,
         Author = book.Author,

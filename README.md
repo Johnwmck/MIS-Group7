@@ -65,6 +65,13 @@ session. Other browsers/tabs should refresh and review their selections after re
 
 ## Local persistence
 
+Catalog updates include the revision shown when the form/control was loaded.
+Purchases and edits replace that token; stale updates return HTTP 409 and require
+refresh/reopening the form. Reset generates fresh tokens too. Existing saved
+books without tokens receive them automatically on load. Successful cart checkout
+subtracts only confirmed purchased quantities from the current shared cart, keeping
+items and extra copies added by other tabs while the request was in flight.
+
 The seed CSV is version-controlled and copied into the API build/publish output.
 It is never rewritten by purchases or catalog operations. Saved state lives at
 `API/App_Data/bookstore-state.json` during normal local runs and is Git-ignored.

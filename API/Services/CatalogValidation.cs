@@ -26,6 +26,8 @@ public static class CatalogValidation
 
     public static string GetError(Book book)
     {
+        if (book.Revision == Guid.Empty)
+            return "The book revision is invalid. Reload the current catalog.";
         if (string.IsNullOrWhiteSpace(book.Title) || string.IsNullOrWhiteSpace(book.Author) ||
             string.IsNullOrWhiteSpace(book.Genre) || string.IsNullOrWhiteSpace(book.Image))
             return "Required book information is missing.";

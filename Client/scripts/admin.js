@@ -87,9 +87,11 @@ async function runAdminBookAction(action, successMessage) {
 }
 
 async function updateAdminBookField(bookId, field, value) {
+    const revision = bookList.find(function (book) { return book.id === bookId; })?.revision;
     await runAdminBookAction(async function () {
         const book = await loadBookFromApi(bookId);
         book[field] = value;
+        book.revision = revision;
         await updateBookInApi(book);
     }, 'Book updated.');
 }
@@ -283,8 +285,10 @@ const bookFormImage = document.getElementById('bookFormImage');
 const bookFormStatus = document.getElementById('bookFormStatus');
 const bookFormSeriesName = document.getElementById('bookFormSeriesName');
 const bookFormSeriesOrder = document.getElementById('bookFormSeriesOrder');
+let bookFormRevision = null;
 
 function openBookForm(book) {
+    bookFormRevision = book ? book.revision : null;
     bookFormError.classList.add('d-none');
     if (book) {
         bookFormModalTitle.textContent = 'Edit Book';
@@ -362,6 +366,9 @@ document.getElementById('saveBookButton').addEventListener('click', async functi
         if (existingId !== null) {
             const book = await loadBookFromApi(existingId);
             Object.assign(book, values);
+            // Keep the revision from form-open time, not the fresh GET token:
+            // a title edit must not write stale form inventory over a sale.
+            book.revision = bookFormRevision;
             await updateBookInApi(book);
         } else {
             await createBookInApi({

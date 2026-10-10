@@ -5,6 +5,9 @@ namespace Team7Books.Api.Models;
 public class Book
 {
     public int Id { get; set; }
+    // Opaque concurrency token. New tokens also prevent edits surviving a demo reset.
+    // Existing saved books without this field receive a token when loaded.
+    public Guid Revision { get; set; } = Guid.NewGuid();
     public string Isbn { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Author { get; set; } = string.Empty;

@@ -15,6 +15,21 @@ function saveCartToStorage(cartItems) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
 }
 
+function subtractPurchasedCartItems(purchasedItems) {
+    const purchasedQuantities = new Map();
+    purchasedItems.forEach(function (item) {
+        purchasedQuantities.set(item.bookId,
+            (purchasedQuantities.get(item.bookId) || 0) + item.quantity);
+    });
+    // Read shared storage after purchase confirmation. Preserve additions from
+    // other tabs while the request was in flight, including extra copies.
+    const remaining = loadCartFromStorage().map(function (item) {
+        return { bookId: item.bookId,
+            quantity: Math.max(0, item.quantity - (purchasedQuantities.get(item.bookId) || 0)) };
+    }).filter(function (item) { return item.quantity > 0; });
+    saveCartToStorage(remaining);
+}
+
 function getCartItemCount(cartItems) {
     let count = 0;
 

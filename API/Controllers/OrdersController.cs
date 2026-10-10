@@ -117,7 +117,11 @@ public class OrdersController : ControllerBase
             var candidate = store.CreateSnapshot();
             candidate.Orders.Add(order);
             foreach (var item in items)
-                candidate.Books.Find(book => book.Id == item.BookId)!.Inventory -= item.Quantity;
+            {
+                var purchasedBook = candidate.Books.Find(book => book.Id == item.BookId)!;
+                purchasedBook.Inventory -= item.Quantity;
+                purchasedBook.Revision = Guid.NewGuid();
+            }
             candidate.NextOrderId++;
             store.Commit(candidate);
             return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
