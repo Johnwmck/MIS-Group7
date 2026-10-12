@@ -1,104 +1,15 @@
-// Customer catalog browsing, cart entry points, and checkout routing.
+// Customer catalog page: search, filters, sorting, and pages of book cards.
+// Depends on book-cards.js for the cards and their cart actions.
 
 // --- Page state and primary DOM references ---
 
 const bookContainer = document.getElementById('bookContainer');
-const customerBestSellers = document.getElementById('customerBestSellers');
-const customerBestSellersEmpty = document.getElementById('customerBestSellersEmpty');
-const modalBookQuantity = document.getElementById('modalBookQuantity');
-
-let customerBusy = false;
-
 const catalogLoadMessage = document.getElementById('catalogLoadMessage');
 
+// Eight rows of four on a desktop-width catalog.
+const CATALOG_PAGE_SIZE = 32;
+
 let bookList = [];
-
-let selectedBook = null;
-
-// --- Book cards and detail modal ---
-
-function openBookDetails(book) {
-    selectedBook = book;
-    updateBookModal(book);
-
-    const modalElement = document.getElementById('bookModal');
-    bootstrap.Modal.getOrCreateInstance(modalElement).show();
-}
-
-function createBookCard(book) {
-    const col = document.createElement('div');
-    col.className = 'col';
-
-    const outOfStock = isBookOutOfStock(book);
-
-    col.innerHTML = `
-        <div class="card h-100${outOfStock ? ' out-of-stock' : ''}" role="button">
-            <div class="position-relative">
-                <img src="${book.image}" class="card-img-top" alt="${book.title}">
-                ${outOfStock
-            ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>'
-            : ''}
-            </div>
-            <div class="card-body">
-                <h5 class="card-title">${book.title}</h5>
-                <p class="card-text mb-1">${book.author}</p>
-                <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
-                <p class="card-text small">${getCustomerAvailability(book)}</p>
-                <button type="button" class="btn btn-primary btn-sm quick-add-button"
-                    ${outOfStock || customerBusy ? 'disabled' : ''}>
-                    Add to Cart
-                </button>
-            </div>
-        </div>
-    `;
-
-    col.querySelector('.card').addEventListener('click', function (event) {
-        if (event.target.closest('.quick-add-button')) {
-            return;
-        }
-
-        openBookDetails(book);
-    });
-
-    const quickAddButton = col.querySelector('.quick-add-button');
-    quickAddButton.dataset.bookId = book.id;
-
-    quickAddButton.addEventListener('click', function (event) {
-        event.stopPropagation();
-        addBookToCart(book.id);
-    });
-
-    bookContainer.appendChild(col);
-}
-
-function updateBookModal(book) {
-    document.getElementById('modalBookTitle').textContent = book.title;
-    document.getElementById('modalBookImage').src = book.image;
-    document.getElementById('modalBookImage').alt = book.title;
-    document.getElementById('modalBookAuthor').textContent =
-        'Author: ' + book.author;
-    document.getElementById('modalBookGenre').textContent =
-        'Genre: ' + book.genre;
-    document.getElementById('modalBookPrice').textContent =
-        'Price: ' + currencyFormatter.format(book.price);
-    document.getElementById('modalBookDescription').textContent =
-        book.description || 'No description available yet.';
-    const series = document.getElementById('modalBookSeries');
-    series.textContent = book.seriesName
-        ? book.seriesName + (book.seriesOrder == null ? '' : ' — Reading sequence ' + book.seriesOrder)
-        : '';
-    series.classList.toggle('d-none', !book.seriesName);
-
-    const bookOutOfStock = book.status !== 'Active' || isBookOutOfStock(book);
-    modalBookQuantity.value = 1;
-    modalBookQuantity.max = book.inventory;
-    modalBookQuantity.disabled = bookOutOfStock || customerBusy;
-    const inventoryText = document.getElementById('modalBookInventory');
-    inventoryText.textContent = getCustomerAvailability(book);
-    inventoryText.classList.toggle('text-danger', bookOutOfStock);
-    document.getElementById('addToCartButton').disabled = bookOutOfStock || customerBusy;
-    document.getElementById('buyNowButton').disabled = bookOutOfStock || customerBusy;
-}
 
 // --- Catalog search, filtering, and sorting ---
 
@@ -107,8 +18,47 @@ const genreFilterSelect = document.getElementById('genreFilterSelect');
 const sortSelect = document.getElementById('sortSelect');
 const catalogEmptyMessage = document.getElementById('catalogEmptyMessage');
 
+// --- Catalog view in the address ---
+// Search, genre, sort, and page live in the address so Back from a book
+// returns to the same view, and the home page can link to a genre or a search.
+
+const catalogParams = new URLSearchParams(window.location.search);
+
+let catalogPage = parseInt(catalogParams.get('page'), 10) || 1;
+// Genre options arrive with the catalog, so the requested genre is applied then.
+let requestedGenre = catalogParams.get('genre') || '';
+
+searchInput.value = catalogParams.get('search') || '';
+
+if (Array.from(sortSelect.options).some(function (option) {
+    return option.value === catalogParams.get('sort');
+})) {
+    sortSelect.value = catalogParams.get('sort');
+}
+
+function saveCatalogView() {
+    const url = new URL(window.location.href);
+    const view = {
+        search: searchInput.value.trim(),
+        genre: genreFilterSelect.value,
+        sort: sortSelect.value,
+        page: catalogPage > 1 ? String(catalogPage) : ''
+    };
+
+    Object.keys(view).forEach(function (name) {
+        if (view[name]) {
+            url.searchParams.set(name, view[name]);
+        } else {
+            url.searchParams.delete(name);
+        }
+    });
+
+    history.replaceState(null, '', url);
+}
+
 function populateGenreFilter() {
-    const previousGenre = genreFilterSelect.value;
+    const previousGenre = genreFilterSelect.value || requestedGenre;
+    requestedGenre = '';
 
     const genres = Array.from(
         new Set(
@@ -188,148 +138,125 @@ function getVisibleCatalogBooks() {
     return visibleBooks;
 }
 
+// --- Catalog pages ---
+
+const catalogPagination = document.getElementById('catalogPagination');
+const catalogPageSummary = document.getElementById('catalogPageSummary');
+
+// First, last, and the pages around the open one; null marks a gap.
+function getCatalogPageNumbers(pageCount) {
+    const pages = [];
+
+    for (let page = 1; page <= pageCount; page += 1) {
+        if (page === 1 || page === pageCount || Math.abs(page - catalogPage) <= 2) {
+            pages.push(page);
+        } else if (pages[pages.length - 1] !== null) {
+            pages.push(null);
+        }
+    }
+
+    return pages;
+}
+
+function createCatalogPageItem(label, page, enabled, ariaLabel) {
+    const item = document.createElement('li');
+    item.className = 'page-item';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'page-link';
+    button.textContent = label;
+    button.disabled = !enabled;
+
+    if (ariaLabel) {
+        button.setAttribute('aria-label', ariaLabel);
+    }
+
+    if (page === catalogPage) {
+        item.classList.add('active');
+        button.setAttribute('aria-current', 'page');
+    } else if (!enabled) {
+        item.classList.add('disabled');
+    }
+
+    button.addEventListener('click', function () {
+        showCatalogPage(page);
+    });
+
+    item.appendChild(button);
+    return item;
+}
+
+function renderCatalogPagination(bookCount, pageCount) {
+    const firstBook = (catalogPage - 1) * CATALOG_PAGE_SIZE + 1;
+    const lastBook = Math.min(catalogPage * CATALOG_PAGE_SIZE, bookCount);
+
+    catalogPageSummary.textContent = bookCount === 0
+        ? ''
+        : 'Showing ' + firstBook + '–' + lastBook + ' of ' + bookCount + ' books';
+    catalogPagination.innerHTML = '';
+
+    // One page needs no controls.
+    if (pageCount <= 1) {
+        return;
+    }
+
+    catalogPagination.appendChild(
+        createCatalogPageItem('Previous', catalogPage - 1, catalogPage > 1, 'Previous page')
+    );
+
+    getCatalogPageNumbers(pageCount).forEach(function (page) {
+        catalogPagination.appendChild(page === null
+            ? createCatalogPageItem('…', null, false)
+            : createCatalogPageItem(String(page), page, true, 'Page ' + page));
+    });
+
+    catalogPagination.appendChild(
+        createCatalogPageItem('Next', catalogPage + 1, catalogPage < pageCount, 'Next page')
+    );
+}
+
 // --- Catalog rendering and filter events ---
 
 function renderCatalog() {
     const visibleBooks = getVisibleCatalogBooks();
+    const pageCount = Math.max(1, Math.ceil(visibleBooks.length / CATALOG_PAGE_SIZE));
+
+    // Filters and catalog changes can leave the open page past the end.
+    catalogPage = Math.min(Math.max(1, catalogPage), pageCount);
+    saveCatalogView();
+
+    const firstIndex = (catalogPage - 1) * CATALOG_PAGE_SIZE;
 
     bookContainer.innerHTML = '';
 
-    visibleBooks.forEach(function (book) {
-        createBookCard(book);
+    visibleBooks.slice(firstIndex, firstIndex + CATALOG_PAGE_SIZE).forEach(function (book) {
+        bookContainer.appendChild(createBookCard(book));
     });
 
     catalogEmptyMessage.classList.toggle(
         'd-none',
         visibleBooks.length > 0
     );
+
+    renderCatalogPagination(visibleBooks.length, pageCount);
 }
 
-searchInput.addEventListener('input', renderCatalog);
-genreFilterSelect.addEventListener('change', renderCatalog);
-sortSelect.addEventListener('change', renderCatalog);
-
-// --- Cart feedback and Add to Cart ---
-
-const cartToastElement = document.getElementById('cartToast');
-const cartToastBody = document.getElementById('cartToastBody');
-const cartToast = new bootstrap.Toast(cartToastElement);
-
-function showCartToast(message, variant) {
-    cartToastElement.classList.remove('text-bg-warning', 'text-bg-success');
-    cartToastElement.classList.add(
-        variant === 'success' ? 'text-bg-success' : 'text-bg-warning'
-    );
-    cartToastBody.textContent = message;
-    cartToast.show();
+function showCatalogPage(page) {
+    catalogPage = page;
+    renderCatalog();
+    document.getElementById('catalogHeading').scrollIntoView();
 }
 
-function updateCartCount() {
-    const cartItems = loadCartFromStorage();
-    document.getElementById('cartCount').textContent =
-        getCartItemCount(cartItems);
+// A new search, filter, or sort starts again from the first page.
+function restartCatalog() {
+    catalogPage = 1;
+    renderCatalog();
 }
 
-function setCustomerBusy(busy) {
-    customerBusy = busy;
-    bookContainer.querySelectorAll('.quick-add-button').forEach(function (button) {
-        const book = bookList.find(function (book) {
-            return book.id === Number(button.dataset.bookId);
-        });
-        button.disabled = busy || !book || isBookOutOfStock(book);
-    });
-    modalBookQuantity.disabled = busy || !selectedBook ||
-        selectedBook.status !== 'Active' || isBookOutOfStock(selectedBook);
-    addToCartButton.disabled = modalBookQuantity.disabled;
-    buyNowButton.disabled = modalBookQuantity.disabled;
-}
-
-async function addBookToCart(bookId, quantityToAdd = 1) {
-    if (customerBusy) {
-        return;
-    }
-    setCustomerBusy(true);
-    try {
-        if (!Number.isInteger(quantityToAdd) || quantityToAdd < 1) {
-            showCartToast('Please choose a whole-number quantity of at least 1.', 'warning');
-            return;
-        }
-        const cartItems = loadCartFromStorage();
-        const existingItem = cartItems.find(function (item) {
-            return item.bookId === bookId;
-        });
-
-        const currentQuantity = existingItem ? existingItem.quantity : 0;
-        const quantity = currentQuantity + quantityToAdd;
-        const error = await setCartQuantity(bookId, quantity);
-
-        if (error) {
-            showCartToast(error, 'warning');
-            return;
-        }
-
-        updateCartCount();
-        const message = quantityToAdd === 1
-            ? 'Book added to your cart.'
-            : quantityToAdd + ' copies added to your cart.';
-
-        showCartToast(message, 'success');
-    } catch (error) {
-        showCartToast('Unable to update your cart. ' + error.message, 'warning');
-    } finally {
-        setCustomerBusy(false);
-    }
-}
-
-const addToCartButton = document.getElementById('addToCartButton');
-
-addToCartButton.addEventListener('click', function () {
-    if (!selectedBook) {
-        return;
-    }
-
-    addBookToCart(
-        selectedBook.id,
-        modalBookQuantity.valueAsNumber
-    );
-});
-
-// --- Buy Now checkout routing ---
-
-const buyNowButton = document.getElementById('buyNowButton');
-
-buyNowButton.addEventListener('click', async function () {
-    if (!selectedBook || customerBusy) {
-        return;
-    }
-    const bookId = selectedBook.id;
-    const quantity = modalBookQuantity.valueAsNumber;
-    setCustomerBusy(true);
-    try {
-        // Reload the current catalog state rather than relying on the copy that
-        // was selected when the modal originally opened.
-        const currentBook = await loadBookFromApi(bookId);
-        const error = getCartQuantityError(currentBook, quantity);
-
-        if (error) {
-            showCartToast(error, 'warning');
-            return;
-        }
-
-        saveCheckoutState('buyNow', [{
-            bookId: currentBook.id,
-            quantity: quantity,
-            price: currentBook.price
-        }]);
-
-        sessionStorage.removeItem('purchaseUncertain');
-        window.location.href = 'checkout.html';
-    } catch (error) {
-        showCartToast('Unable to start checkout. ' + error.message, 'warning');
-    } finally {
-        setCustomerBusy(false);
-    }
-});
+searchInput.addEventListener('input', restartCatalog);
+genreFilterSelect.addEventListener('change', restartCatalog);
+sortSelect.addEventListener('change', restartCatalog);
 
 // --- Page refresh and initialization ---
 
@@ -341,11 +268,6 @@ async function refreshCustomerCatalog() {
     catalogLoadMessage.textContent = 'Loading catalog...';
     catalogLoadMessage.classList.remove('d-none', 'alert-danger');
     catalogLoadMessage.classList.add('alert-info');
-
-    customerBestSellers.closest('section').classList.remove('d-none');
-    customerBestSellers.innerHTML = '';
-    customerBestSellersEmpty.textContent = 'Loading Best Sellers...';
-    customerBestSellersEmpty.classList.remove('d-none');
     catalogEmptyMessage.classList.add('d-none');
 
     try {
@@ -355,47 +277,19 @@ async function refreshCustomerCatalog() {
             showCartToast(reconciliation.messages.join(' '), 'warning');
         }
 
+        reconcileFavorites(bookList);
+        updateFavoriteDisplays();
+
         populateGenreFilter();
         renderCatalog();
-        try {
-            renderCustomerBestSellers(
-                await loadOrdersFromApi(), bookList,
-                customerBestSellers, customerBestSellersEmpty, openBookDetails
-            );
-            customerBestSellersEmpty.textContent = 'No best-selling books are available yet.';
-        } catch (error) {
-            customerBestSellers.innerHTML = '';
-            customerBestSellersEmpty.textContent = 'Unable to load Best Sellers. Refresh to retry.';
-            customerBestSellersEmpty.classList.remove('d-none');
-        }
-
-        if (selectedBook) {
-            selectedBook = bookList.find(function (book) {
-                return book.id === selectedBook.id;
-            });
-
-            if (selectedBook && selectedBook.status === 'Active') {
-                updateBookModal(selectedBook);
-            } else {
-                bootstrap.Modal.getOrCreateInstance(
-                    document.getElementById('bookModal')
-                ).hide();
-
-                selectedBook = null;
-            }
-        }
 
         catalogLoadMessage.textContent = '';
         catalogLoadMessage.classList.add('d-none');
     } catch (error) {
         bookList = [];
-        selectedBook = null;
         bookContainer.innerHTML = '';
         catalogEmptyMessage.classList.add('d-none');
-
-        bootstrap.Modal.getOrCreateInstance(
-            document.getElementById('bookModal')
-        ).hide();
+        renderCatalogPagination(0, 1);
 
         catalogLoadMessage.textContent =
             'Unable to load the catalog. Check that the API is running, then refresh.';

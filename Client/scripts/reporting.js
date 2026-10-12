@@ -196,12 +196,14 @@ function renderOrderHistory(orders, hasOrders, { orderHistoryList, orderHistoryE
 
 // --- Customer recommendations ---
 
-function renderCustomerBestSellers(orders, books, list, emptyMessage, onSelect) {
+// Best-selling books a customer can buy now, most copies sold first. The page
+// decides how to display them.
+function getCustomerBestSellers(orders, books, limit) {
     // Rank all sales first; resolve/filter current sellable books before taking
-    // five, so deleted/inactive titles do not leave avoidable recommendation gaps.
+    // the limit, so deleted/inactive titles do not leave avoidable recommendation gaps.
     const rankedItems = getBestSellingItems(orders);
 
-    const recommendations = rankedItems
+    return rankedItems
         .map(function (item) {
             let book = null;
 
@@ -229,39 +231,7 @@ function renderCustomerBestSellers(orders, books, list, emptyMessage, onSelect) 
         .filter(function (recommendation) {
             return recommendation !== null;
         })
-        .slice(0, 5);
-
-    list.innerHTML = '';
-
-    recommendations.forEach(function (recommendation) {
-        const button = document.createElement('button');
-
-        button.type = 'button';
-        button.className =
-            'list-group-item list-group-item-action ' +
-            'd-flex justify-content-between align-items-center';
-
-        const title = document.createElement('span');
-        title.textContent = recommendation.book.title;
-
-        const sales = document.createElement('span');
-        sales.className = 'badge bg-primary rounded-pill';
-        sales.textContent =
-            recommendation.quantitySold + ' sold';
-
-        button.append(title, sales);
-
-        button.addEventListener('click', function () {
-            onSelect(recommendation.book);
-        });
-
-        list.appendChild(button);
-    });
-
-    emptyMessage.classList.toggle(
-        'd-none',
-        recommendations.length > 0
-    );
+        .slice(0, limit);
 }
 
 // --- Admin dashboard ---
@@ -290,6 +260,11 @@ async function renderStats(books, { statsSummaryRow, lowStockList, bestSellersLi
         return book.status === 'Active' &&
             (isBookOutOfStock(book) || isBookLowStock(book));
     }).sort(function (a, b) {
+        // Fewest copies first; titles break ties.
+        if (a.inventory !== b.inventory) {
+            return a.inventory - b.inventory;
+        }
+
         return a.title.localeCompare(b.title);
     });
 
@@ -323,7 +298,7 @@ async function renderStats(books, { statsSummaryRow, lowStockList, bestSellersLi
     lowStockList.innerHTML = lowStockBooks.length
         ? lowStockBooks.map(function (book) {
             return `<li class="list-group-item d-flex justify-content-between">
-                <span>${book.title}</span>
+                <span class="low-stock-title">${book.title}</span>
                 <span class="text-muted">
                     ${isBookOutOfStock(book) ? 'Out of stock &middot; ' : ''}${book.inventory} left
                 </span>

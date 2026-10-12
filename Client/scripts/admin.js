@@ -35,12 +35,14 @@ async function loadAdminCatalog() {
     try {
         bookList = await loadBooksFromApi();
         await renderStats(bookList, { statsSummaryRow, lowStockList, bestSellersList });
+        applyLowStockFilter();
         showAdminMessage('');
     } catch (error) {
         bookList = [];
         statsSummaryRow.innerHTML = '';
         lowStockList.innerHTML = '';
         bestSellersList.innerHTML = '';
+        applyLowStockFilter();
 
         showAdminMessage(
             'Unable to load the catalog. ' + error.message,
@@ -66,6 +68,7 @@ async function runAdminBookAction(action, successMessage) {
 
         bookList = await loadBooksFromApi();
         await renderStats(bookList, { statsSummaryRow, lowStockList, bestSellersList });
+        applyLowStockFilter();
         showAdminMessage(successMessage);
 
         return true;
@@ -393,6 +396,28 @@ document.getElementById('saveBookButton').addEventListener('click', async functi
 const statsSummaryRow = document.getElementById('statsSummaryRow');
 const lowStockList = document.getElementById('lowStockList');
 const bestSellersList = document.getElementById('bestSellersList');
+
+// --- Low stock search ---
+
+const lowStockSearchInput = document.getElementById('lowStockSearchInput');
+const lowStockEmpty = document.getElementById('lowStockEmpty');
+
+// renderStats rebuilds the list, so this runs again after every catalog load.
+function applyLowStockFilter() {
+    const query = lowStockSearchInput.value.trim().toLowerCase();
+    const titles = Array.from(lowStockList.querySelectorAll('.low-stock-title'));
+    let matchCount = 0;
+
+    titles.forEach(function (title) {
+        const matches = title.textContent.toLowerCase().includes(query);
+        title.parentElement.classList.toggle('d-none', !matches);
+        if (matches) matchCount += 1;
+    });
+
+    lowStockEmpty.classList.toggle('d-none', titles.length === 0 || matchCount > 0);
+}
+
+lowStockSearchInput.addEventListener('input', applyLowStockFilter);
 
 // --- Page initialization ---
 

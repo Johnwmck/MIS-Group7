@@ -21,10 +21,20 @@ Bootstrap and book cover images require internet access.
 
 ## Pages
 
-- **Customer home:** Browse, search, filter, sort, and view details from the Books API.
+- **Customer home:** Best Sellers and the four largest genres each show a carousel
+  of up to 12 books, four per slide. Searching from here opens the catalog.
+- **Catalog:** http://localhost:5187/catalog.html lists every active book, 32 per
+  page (eight rows of four), with search, genre filter, and sort. The view is kept
+  in the address (`?search=`, `?genre=`, `?sort=`, `?page=`).
   Add to Cart and Buy Now validate quantities against current API inventory.
+- **Book page:** Selecting a book opens `book.html?id=<book id>` with a cover and
+  summary carousel beside the price, quantity, Add to Cart, favorite, and Buy Now.
+  Similar books (the rest of the series, then the author, then the genre) follow.
 - **Cart and checkout:** Review current API titles, prices, and availability,
   then place an order through the server.
+- **Favorites:** Select the heart on any book to save it, then open the heart
+  link beside Cart to add saved books to the cart or remove them. Favorites stay
+  in this browser.
 - **Internal login:** Open http://localhost:5187/login.html to access employee or
   admin pages.
 - **Employee:** Manage inventory and availability; view server orders and export CSV.
@@ -96,7 +106,8 @@ orders remain valid only when their original totals match their item snapshots.
 Malformed snapshots are rejected without modifying the saved file.
 
 Series names and nullable decimal reading sequences are preserved by catalog
-operations, editable in Admin, and displayed in customer details. Browser demo
+operations, editable in Admin, and used to order a book's series under Similar
+Books. Browser demo
 accounts remain browser-only. The reset endpoint has no server authentication:
 this is still a local prototype, not a production-ready deployment.
 
@@ -117,12 +128,17 @@ scripts, in dependency order, before their page controller:
 | `api.js` | Same-origin book and order requests |
 | `book-utils.js` | Currency and stock-display rules |
 | `cart-state.js` | Cart selections and API reconciliation |
+| `book-cards.js` | Customer book cards and Add to Cart, shared by the home and catalog pages |
+| `favorites-state.js` | Saved favorites, navbar count, and heart buttons |
+| `cart-preview.js` | Navbar hover preview of cart items and totals, with one-copy removal and Checkout |
 | `checkout-state.js` | Checkout snapshots and customer validation |
 | `internal-users.js` | Prototype accounts and login sessions |
 | `demo-reset.js` | Server demo reset and initiating-browser cleanup |
+| `section-nav.js` | Admin and Employee section bar; the URL hash keeps the open section |
 | `reporting.js` | Sales rankings, dashboard, recommendations, history rendering/search |
 | `order-export.js` | Order CSV formatting and download |
 
+`home.js` runs the home page and `customer.js` runs the catalog page.
 `order-history.js` owns history loading, search/export events, and displayed-order
 state. Report renderers take explicit data and DOM targets; they do not initialize
 themselves or own page globals. Order CSV behavior is unchanged; catalog CSV
