@@ -1,0 +1,388 @@
+/* ==========================================================================
+   Team 7 Books — page-specific styles
+   ==========================================================================
+
+   Stylesheets load in this order on every page (section numbers continue
+   across files): base.css → layout.css → components.css → pages.css
+
+   Contents
+    6. Home hero ................ animated crimson banner on index.html
+   6b. Seasonal promo ........... Halloween sale banner, sale prices, badges
+   10. Home carousels ........... book-row carousels and catalog heading
+   12. Book page ................ cover, purchase controls, description
+   13. Admin reports ............ stat cards on admin.html
+   ========================================================================== */
+
+
+/* ==========================================================================
+   6. Home hero
+   Animated crimson banner at the top of index.html.
+   ========================================================================== */
+
+.brand-hero {
+    background: linear-gradient(120deg, var(--brand-crimson-dark), var(--brand-crimson), var(--brand-crimson-dark));
+    background-size: 200% 200%;
+    animation: hero-gradient-pan 10s ease infinite;
+    color: #fff;
+    padding: 2.5rem 1rem;
+    margin-bottom: 2rem;
+}
+
+@keyframes hero-gradient-pan {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brand-hero {
+        animation: none;
+    }
+}
+
+.brand-hero h1 {
+    color: #fff;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.brand-hero p {
+    color: rgba(255, 255, 255, 0.85);
+    max-width: 40rem;
+    margin: 0 auto;
+}
+
+.brand-hero .accent-rule {
+    width: 3rem;
+    height: 3px;
+    background: var(--brand-gray);
+    margin: 0.9rem auto 0;
+    border-radius: 2px;
+}
+
+
+
+/* ==========================================================================
+   6b. Seasonal promo
+   Halloween "Thrills & Chills" banner that replaces the hero on index.html
+   while books are on sale, plus sale-price styling used on every book tile.
+   ========================================================================== */
+
+.promo-banner {
+    --promo-glow: #f0a54a;
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    padding: 3rem 0;
+    margin-bottom: 2rem;
+    background:
+        radial-gradient(circle at 80% 35%, rgba(194, 103, 15, 0.35), transparent 45%),
+        linear-gradient(135deg, #121517 0%, var(--brand-ink) 45%, var(--brand-crimson-dark) 100%);
+}
+
+.promo-banner-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+}
+
+.promo-copy {
+    max-width: 32rem;
+}
+
+.promo-eyebrow {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--promo-glow);
+    margin-bottom: 0.5rem;
+}
+
+.promo-banner h1 {
+    color: #fff;
+    font-size: clamp(2.75rem, 7vw, 4.75rem);
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 1rem;
+}
+
+.promo-banner h1 span {
+    color: var(--promo-glow);
+    font-style: italic;
+}
+
+.promo-offer {
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 1.5rem;
+}
+
+.promo-offer strong {
+    color: var(--promo-glow);
+}
+
+.promo-cta {
+    background-color: var(--promo-glow);
+    color: var(--brand-ink);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.6rem;
+    border: 0;
+}
+
+.promo-cta:hover,
+.promo-cta:focus-visible {
+    background-color: var(--brand-ivory-soft);
+    color: var(--brand-ink);
+}
+
+.promo-fineprint {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 0.9rem 0 0;
+}
+
+/* Fanned covers; home.js sets --fan-index (offset from center) and --fan-lift. */
+.promo-covers {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 1.5rem 2rem 0 0;
+}
+
+.promo-cover {
+    width: 7.5rem;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 4px;
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55);
+    transform-origin: bottom center;
+    transform: rotate(calc(var(--fan-index) * 7deg)) translateY(calc(var(--fan-lift) * 0.75rem));
+}
+
+.promo-cover + .promo-cover {
+    margin-left: -2.25rem;
+}
+
+.promo-moon {
+    position: absolute;
+    top: 1.25rem;
+    right: 12%;
+    width: 9rem;
+    height: 9rem;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 38%, #f6ead0, #e6b26a 55%, var(--brand-amber));
+    box-shadow: 0 0 80px rgba(194, 103, 15, 0.55);
+    opacity: 0.85;
+}
+
+.promo-bat {
+    position: absolute;
+    width: 3rem;
+    fill: rgba(233, 231, 222, 0.3);
+    animation: promo-bat-drift 6s ease-in-out infinite;
+}
+
+.promo-bat-1 {
+    top: 2.5rem;
+    right: calc(12% + 2rem);
+    width: 3.5rem;
+    fill: var(--brand-ink);
+    z-index: 1;
+}
+
+.promo-bat-2 {
+    top: 1.5rem;
+    left: 46%;
+    animation-delay: -2s;
+}
+
+.promo-bat-3 {
+    bottom: 1.5rem;
+    left: 38%;
+    width: 2.25rem;
+    animation-delay: -4s;
+}
+
+@keyframes promo-bat-drift {
+    0%,
+    100% {
+        transform: translate(0, 0) rotate(-4deg);
+    }
+
+    50% {
+        transform: translate(0.75rem, -0.6rem) rotate(4deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .promo-bat {
+        animation: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .promo-banner {
+        padding: 2.25rem 0;
+    }
+
+    .promo-covers {
+        display: none;
+    }
+
+    .promo-moon {
+        width: 6rem;
+        height: 6rem;
+        right: -1.5rem;
+    }
+
+    .promo-bat-1 {
+        right: 1rem;
+    }
+}
+
+/* Sale prices on tiles, the book page, and similar books. */
+.sale-price {
+    color: var(--brand-crimson);
+}
+
+.regular-price {
+    color: var(--brand-gray-dark);
+    font-weight: 400;
+    font-size: 0.85em;
+    margin-left: 0.35rem;
+}
+
+/* Ink rather than amber so it never reads as the (amber) out-of-stock badge. */
+.promo-badge {
+    background-color: var(--brand-ink);
+    color: #f0a54a;
+    letter-spacing: 0.04em;
+}
+
+
+
+/* ==========================================================================
+   10. Home carousels & catalog heading
+   Best Sellers and genre rows on index.html; catalog.html heading.
+   ========================================================================== */
+
+/* The carousel clips its slides; this leaves room for the covers' hover lift
+   and shadow without shifting the tiles out of line with the page. */
+.book-row-carousel .carousel-inner {
+    width: auto;
+    margin: 0 -0.75rem;
+    padding: 0.25rem 0.75rem 1.5rem;
+}
+
+.carousel-step {
+    padding: 0 0.75rem;
+    font-size: 1.5rem;
+    line-height: 1.6;
+}
+
+/* The sticky header would otherwise cover the heading after a page change. */
+#catalogHeading {
+    scroll-margin-top: 7rem;
+}
+
+
+
+/* ==========================================================================
+   12. Book page
+   Cover, purchase controls, and description on book.html.
+   ========================================================================== */
+
+.book-cover {
+    max-width: 100%;
+    max-height: 28rem;
+    object-fit: contain;
+    border-radius: 0.4rem;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+/* Full-width summary between the purchase row and Similar Books. A capped
+   line length keeps long descriptions easy to read. */
+.book-description {
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+    padding-top: 1.5rem;
+}
+
+.book-description p {
+    max-width: 48rem;
+    line-height: 1.75;
+    white-space: pre-line;
+}
+
+.author-bio {
+    margin-top: 1rem;
+}
+
+.author-bio-toggle {
+    padding: 0;
+    font-weight: 600;
+    color: var(--brand-crimson);
+    text-decoration: none;
+}
+
+.author-bio-toggle:hover,
+.author-bio-toggle:focus-visible {
+    color: var(--brand-crimson-dark);
+    text-decoration: underline;
+}
+
+.author-bio-toggle::after {
+    content: "";
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    margin-left: 0.5em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-0.2em) rotate(45deg);
+    transition: transform 0.2s ease;
+}
+
+.author-bio-toggle.collapsed::after {
+    transform: translateY(0) rotate(-45deg);
+}
+
+.book-quantity {
+    width: 6rem;
+}
+
+
+
+/* ==========================================================================
+   13. Admin reports
+   Stat cards in the Reports section of admin.html.
+   ========================================================================== */
+
+#statsSummaryRow .card {
+    border-top: 3px solid var(--brand-crimson);
+    text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#statsSummaryRow .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+}
+
+#statsSummaryRow .fs-4 {
+    color: var(--brand-crimson-dark);
+}
