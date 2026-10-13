@@ -1,0 +1,269 @@
+/* ==========================================================================
+   Team 7 Books — base styles
+   ==========================================================================
+
+   Brand identity
+   Clean modern retail: Crimson Flame is the primary brand color (navbar,
+   buttons, links, focus states). Capstone Gray ("elephant grey") is the
+   small accent — wordmark mark, hero divider. Ivory Tusk page background.
+   Fraunces serif for headings/wordmark, Work Sans for all UI text.
+   Applied identically across customer, employee, and admin pages.
+
+   Bootstrap's danger color is remapped to amber (section 15) since crimson
+   red would otherwise be indistinguishable from delete/out-of-stock/warning
+   signals — those need to stay visually distinct from brand actions.
+
+   Stylesheets load in this order on every page (section numbers continue
+   across files): base.css → layout.css → components.css → pages.css
+
+   Contents
+    1. Design tokens ............ colors and fonts shared by every stylesheet
+    2. Base & typography ........ page background, body text, headings, links
+    7. Bootstrap overrides ...... cards, list groups, buttons, brand utilities,
+                                  forms, tables, modals, pagination
+   15. Danger → amber remap ..... keep last; nothing in later files restyles
+                                  the danger classes
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. Design tokens
+   ========================================================================== */
+
+:root {
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-body: "Work Sans", system-ui, -apple-system, sans-serif;
+
+    --brand-crimson: #9e1b32;
+    --brand-crimson-dark: #6e1424;
+    --brand-crimson-tint: rgba(158, 27, 50, 0.08);
+    --brand-ivory: #dad7cb;
+    --brand-ivory-soft: #e9e7de;
+    --brand-gray: #828a8f;
+    --brand-gray-dark: #5f6a72;
+    --brand-ink: #23282b;
+    --brand-amber: #c2670f;
+    --brand-amber-dark: #96500b;
+}
+
+
+
+/* ==========================================================================
+   2. Base & typography
+   ========================================================================== */
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--brand-ivory);
+    color: var(--brand-ink);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.navbar-brand,
+.card-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--brand-ink);
+}
+
+a {
+    color: var(--brand-crimson);
+    transition: color 0.15s ease;
+}
+
+a:hover {
+    color: var(--brand-crimson-dark);
+}
+
+
+
+/* ==========================================================================
+   7. Bootstrap overrides
+   Brand colors and softer edges for Bootstrap components used site-wide.
+   ========================================================================== */
+
+/* --- Cards --- */
+
+.card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+    background-color: var(--brand-crimson-tint);
+    border-bottom: 1px solid rgba(158, 27, 50, 0.15);
+    font-weight: 600;
+}
+
+/* --- List groups --- */
+
+.list-group-item-action {
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.list-group-item-action:hover {
+    transform: translateX(3px);
+}
+
+/* --- Buttons ---
+   Primary only — success/secondary stay Bootstrap default; danger is
+   remapped in section 15. */
+
+.btn {
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--brand-crimson);
+    --bs-btn-border-color: var(--brand-crimson);
+    --bs-btn-hover-bg: var(--brand-crimson-dark);
+    --bs-btn-hover-border-color: var(--brand-crimson-dark);
+    --bs-btn-active-bg: var(--brand-crimson-dark);
+    --bs-btn-active-border-color: var(--brand-crimson-dark);
+    --bs-btn-disabled-bg: var(--brand-crimson);
+    --bs-btn-disabled-border-color: var(--brand-crimson);
+    --bs-btn-focus-shadow-rgb: 158, 27, 50;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--brand-crimson);
+    --bs-btn-border-color: var(--brand-crimson);
+    --bs-btn-hover-bg: var(--brand-crimson);
+    --bs-btn-hover-border-color: var(--brand-crimson);
+    --bs-btn-active-bg: var(--brand-crimson-dark);
+    --bs-btn-active-border-color: var(--brand-crimson-dark);
+    --bs-btn-focus-shadow-rgb: 158, 27, 50;
+}
+
+/* --- Brand color utilities --- */
+
+.text-primary {
+    color: var(--brand-crimson) !important;
+}
+
+.bg-primary {
+    background-color: var(--brand-crimson) !important;
+}
+
+.border-primary {
+    border-color: var(--brand-crimson) !important;
+}
+
+/* --- Forms --- */
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--brand-crimson);
+    box-shadow: 0 0 0 0.25rem rgba(158, 27, 50, 0.2);
+}
+
+.input-group-text {
+    background-color: var(--brand-crimson-tint);
+    border-color: rgba(158, 27, 50, 0.2);
+    color: var(--brand-crimson-dark);
+    font-weight: 600;
+}
+
+/* --- Tables --- */
+
+.table thead th {
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--brand-gray-dark);
+    border-bottom: 2px solid var(--brand-crimson);
+    font-weight: 600;
+}
+
+.table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.table tbody tr:hover {
+    background-color: var(--brand-crimson-tint);
+}
+
+/* --- Modals --- */
+
+.modal-header {
+    border-bottom: 1px solid rgba(158, 27, 50, 0.15);
+}
+
+.modal-title {
+    font-family: var(--font-display);
+}
+
+/* --- Pagination --- */
+
+.pagination {
+    --bs-pagination-color: var(--brand-crimson);
+    --bs-pagination-hover-color: var(--brand-crimson-dark);
+    --bs-pagination-focus-color: var(--brand-crimson-dark);
+    --bs-pagination-focus-box-shadow: 0 0 0 0.25rem rgba(158, 27, 50, 0.2);
+    --bs-pagination-active-bg: var(--brand-crimson);
+    --bs-pagination-active-border-color: var(--brand-crimson);
+}
+
+
+
+/* ==========================================================================
+   15. Danger → amber remap
+   Now that crimson is the primary brand color, Bootstrap's default red
+   "danger" would be visually confusable with brand-colored buttons/links.
+   Delete actions, out-of-stock badges, and low-stock warnings all use
+   .btn-danger/.btn-outline-danger/.bg-danger/.text-danger, so remapping
+   here keeps those signals distinct without touching any JS.
+   Keep this section last in base.css; later files don't restyle these classes.
+   ========================================================================== */
+
+.btn-danger {
+    --bs-btn-bg: var(--brand-amber);
+    --bs-btn-border-color: var(--brand-amber);
+    --bs-btn-hover-bg: var(--brand-amber-dark);
+    --bs-btn-hover-border-color: var(--brand-amber-dark);
+    --bs-btn-active-bg: var(--brand-amber-dark);
+    --bs-btn-active-border-color: var(--brand-amber-dark);
+    --bs-btn-disabled-bg: var(--brand-amber);
+    --bs-btn-disabled-border-color: var(--brand-amber);
+    --bs-btn-focus-shadow-rgb: 194, 103, 15;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: var(--brand-amber);
+    --bs-btn-border-color: var(--brand-amber);
+    --bs-btn-hover-bg: var(--brand-amber);
+    --bs-btn-hover-border-color: var(--brand-amber);
+    --bs-btn-active-bg: var(--brand-amber-dark);
+    --bs-btn-active-border-color: var(--brand-amber-dark);
+    --bs-btn-focus-shadow-rgb: 194, 103, 15;
+}
+
+.text-danger {
+    color: var(--brand-amber) !important;
+}
+
+.bg-danger {
+    background-color: var(--brand-amber) !important;
+}
+
+.border-danger {
+    border-color: var(--brand-amber) !important;
+}
