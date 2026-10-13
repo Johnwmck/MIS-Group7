@@ -1,4 +1,4 @@
-// Customer book page: cover, purchase controls, description, and similar books.
+// Customer book page: cover, purchase controls, description, author bio, and similar books.
 
 // --- Page state and DOM references ---
 
@@ -44,6 +44,10 @@ function renderBookDetails(book) {
     cover.alt = 'Cover of ' + book.title;
     document.getElementById('bookDescription').textContent =
         book.description || 'No description available yet.';
+    // Bio is collapsed under the description; hidden entirely when none is on file.
+    document.getElementById('authorBio').textContent = book.authorBio || '';
+    document.getElementById('authorBioToggle').textContent = 'About ' + book.author.split(',')[0].trim();
+    document.getElementById('authorBioSection').classList.toggle('d-none', !book.authorBio);
 
     document.getElementById('bookPrice').textContent = currencyFormatter.format(book.price);
     const availability = document.getElementById('bookAvailability');

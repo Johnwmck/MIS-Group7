@@ -1,4 +1,4 @@
-// Shared currency formatting and catalog availability display.
+// Shared currency formatting, catalog availability display, and cover image fallback.
 
 // --- Display configuration and input checks ---
 
@@ -69,3 +69,18 @@ function getCustomerAvailability(book) {
     return 'In stock';
 }
 
+
+// --- Cover image fallback ---
+// One capture-phase listener covers every <img> on the page, including ones
+// rendered later. Blank 1x1 placeholder images (Open Library's "no cover"
+// response) load successfully, so they are caught on load as well as on error.
+const COVER_PLACEHOLDER_SRC = 'images/cover-placeholder.svg';
+
+function useCoverPlaceholder(event) {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || img.src.endsWith(COVER_PLACEHOLDER_SRC)) return;
+    if (event.type === 'error' || img.naturalWidth <= 1) img.src = COVER_PLACEHOLDER_SRC;
+}
+
+document.addEventListener('error', useCoverPlaceholder, true);
+document.addEventListener('load', useCoverPlaceholder, true);

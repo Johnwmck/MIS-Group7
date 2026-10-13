@@ -283,6 +283,7 @@ const bookFormId = document.getElementById('bookFormId');
 const bookFormTitle = document.getElementById('bookFormTitle');
 const bookFormDescription = document.getElementById('bookFormDescription');
 const bookFormAuthor = document.getElementById('bookFormAuthor');
+const bookFormAuthorBio = document.getElementById('bookFormAuthorBio');
 const bookFormGenre = document.getElementById('bookFormGenre');
 const bookFormIsbn = document.getElementById('bookFormIsbn');
 const bookFormPrice = document.getElementById('bookFormPrice');
@@ -303,6 +304,7 @@ function openBookForm(book) {
         bookFormTitle.value = book.title;
         bookFormAuthor.value = book.author;
         bookFormDescription.value = book.description;
+        bookFormAuthorBio.value = book.authorBio || '';
         bookFormGenre.value = book.genre;
         bookFormIsbn.value = book.isbn;
         bookFormPrice.value = book.price;
@@ -332,6 +334,7 @@ document.getElementById('saveBookButton').addEventListener('click', async functi
         title: bookFormTitle.value.trim(),
         author: bookFormAuthor.value.trim(),
         description: bookFormDescription.value.trim(),
+        authorBio: bookFormAuthorBio.value.trim(),
         genre: bookFormGenre.value.trim(),
         isbn: bookFormIsbn.value.trim(),
         price: bookFormPrice.valueAsNumber,

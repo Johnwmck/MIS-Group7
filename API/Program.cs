@@ -38,9 +38,13 @@ app.UseDefaultFiles(new DefaultFilesOptions
     FileProvider = clientFiles
 });
 
+// no-cache = revalidate via ETag on every load, so a page and its scripts
+// never mix old and new versions after a change.
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = clientFiles
+    FileProvider = clientFiles,
+    OnPrepareResponse = context =>
+        context.Context.Response.Headers.CacheControl = "no-cache"
 });
 
 app.UseRouting();

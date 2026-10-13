@@ -77,6 +77,17 @@
             <section class="book-description mb-5" aria-labelledby="bookDescriptionHeading">
                 <h2 class="h4" id="bookDescriptionHeading">Description</h2>
                 <p class="mb-0" id="bookDescription"></p>
+
+                <div class="author-bio d-none" id="authorBioSection">
+                    <button type="button" class="btn btn-link author-bio-toggle collapsed" id="authorBioToggle"
+                        data-bs-toggle="collapse" data-bs-target="#authorBioPanel"
+                        aria-expanded="false" aria-controls="authorBioPanel">
+                        About the Author
+                    </button>
+                    <div class="collapse" id="authorBioPanel">
+                        <p class="mb-0 pt-2" id="authorBio"></p>
+                    </div>
+                </div>
             </section>
 
             <section aria-labelledby="similarBooksHeading">

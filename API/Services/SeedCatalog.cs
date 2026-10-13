@@ -16,7 +16,7 @@ public static class SeedCatalog
         csv.TrimWhiteSpace = false;
         var expected = new[] { "id", "isbn", "title", "author", "genre", "price",
             "inventory", "status", "image", "description", "manualStockOverride",
-            "seriesName", "seriesOrder" };
+            "seriesName", "seriesOrder", "authorBio" };
         if (!(csv.ReadFields() ?? Array.Empty<string>()).SequenceEqual(expected))
             throw new InvalidDataException("Seed CSV headers do not match the catalog schema.");
 
@@ -45,7 +45,8 @@ public static class SeedCatalog
                 ManualStockOverride = fields[10] == "" ? null : bool.Parse(fields[10]),
                 SeriesName = fields[11] == "" ? null : fields[11],
                 SeriesOrder = fields[12] == "" ? null :
-                    decimal.Parse(fields[12], NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)
+                    decimal.Parse(fields[12], NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture),
+                AuthorBio = fields[13]
             };
             if (book.Id < 1 || !ids.Add(book.Id) || !isbns.Add(book.Isbn) ||
                 CatalogValidation.GetError(book) != "")

@@ -21,6 +21,8 @@ public class Book
     public string Status { get; set; } = string.Empty;
     public string Image { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    // Shown as "About the Author"; optional, seeded per primary author.
+    public string AuthorBio { get; set; } = string.Empty;
     // null/false = automatic availability; true = forced out of stock.
     // Zero physical inventory always remains unavailable.
     public bool? ManualStockOverride { get; set; }

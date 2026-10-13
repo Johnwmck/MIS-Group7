@@ -699,6 +699,39 @@ a:hover {
     white-space: pre-line;
 }
 
+.author-bio {
+    margin-top: 1rem;
+}
+
+.author-bio-toggle {
+    padding: 0;
+    font-weight: 600;
+    color: var(--brand-crimson);
+    text-decoration: none;
+}
+
+.author-bio-toggle:hover,
+.author-bio-toggle:focus-visible {
+    color: var(--brand-crimson-dark);
+    text-decoration: underline;
+}
+
+.author-bio-toggle::after {
+    content: "";
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    margin-left: 0.5em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-0.2em) rotate(45deg);
+    transition: transform 0.2s ease;
+}
+
+.author-bio-toggle.collapsed::after {
+    transform: translateY(0) rotate(-45deg);
+}
+
 .book-quantity {
     width: 6rem;
 }
