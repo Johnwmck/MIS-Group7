@@ -27,7 +27,7 @@ function fillBookCarousel(carouselInner, entries) {
         slide.className = 'carousel-item' + (start === 0 ? ' active' : '');
 
         const row = document.createElement('div');
-        row.className = 'row row-cols-2 row-cols-md-4 g-3';
+        row.className = 'row row-cols-2 row-cols-md-4 g-4';
 
         entries.slice(start, start + BOOKS_PER_SLIDE).forEach(function (entry) {
             const col = createBookCard(entry.book);

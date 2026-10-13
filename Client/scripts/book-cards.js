@@ -1,6 +1,7 @@
-// Shared customer book cards and their cart actions, used by the home page
-// carousels and the catalog page. Depends on book-utils.js, api.js,
-// cart-state.js, favorites-state.js, and Bootstrap (toasts).
+// Shared customer book tiles (cover, title, author, price) and the cart
+// feedback helpers, used by the home page carousels and the catalog page.
+// Depends on book-utils.js, api.js, cart-state.js, favorites-state.js, and
+// Bootstrap (toasts).
 
 // --- Shared busy state ---
 
@@ -28,20 +29,15 @@ function createBookCard(book) {
             : ''}
             </div>
             <div class="card-body">
-                <h5 class="card-title">${book.title}</h5>
-                <p class="card-text mb-1">${book.author}</p>
+                <h3 class="card-title h6">${book.title}</h3>
+                <p class="card-text book-author">${book.author}</p>
                 <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
-                <p class="card-text small">${getCustomerAvailability(book)}</p>
-                <button type="button" class="btn btn-primary btn-sm quick-add-button"
-                    ${outOfStock || customerBusy ? 'disabled' : ''}>
-                    Add to Cart
-                </button>
             </div>
         </div>
     `;
 
     col.querySelector('.card').addEventListener('click', function (event) {
-        if (event.target.closest('.quick-add-button, .favorite-button')) {
+        if (event.target.closest('.favorite-button')) {
             return;
         }
 
@@ -52,19 +48,10 @@ function createBookCard(book) {
     favoriteButton.classList.add('position-absolute', 'top-0', 'start-0', 'm-2');
     col.querySelector('.position-relative').appendChild(favoriteButton);
 
-    const quickAddButton = col.querySelector('.quick-add-button');
-    // Remembered so the button stays off after a busy period ends.
-    quickAddButton.dataset.outOfStock = outOfStock;
-
-    quickAddButton.addEventListener('click', function (event) {
-        event.stopPropagation();
-        addBookToCart(book.id);
-    });
-
     return col;
 }
 
-// --- Cart feedback and Add to Cart ---
+// --- Cart feedback ---
 
 const cartToastElement = document.getElementById('cartToast');
 const cartToastBody = document.getElementById('cartToastBody');
@@ -85,47 +72,8 @@ function updateCartCount() {
         getCartItemCount(cartItems);
 }
 
-// Every card on the page waits while one cart change is checked with the API.
+// Set while a page loads books or checks the cart with the API, so a second
+// refresh waits its turn.
 function setCustomerBusy(busy) {
     customerBusy = busy;
-    document.querySelectorAll('.quick-add-button').forEach(function (button) {
-        button.disabled = busy || button.dataset.outOfStock === 'true';
-    });
-}
-
-async function addBookToCart(bookId, quantityToAdd = 1) {
-    if (customerBusy) {
-        return;
-    }
-    setCustomerBusy(true);
-    try {
-        if (!Number.isInteger(quantityToAdd) || quantityToAdd < 1) {
-            showCartToast('Please choose a whole-number quantity of at least 1.', 'warning');
-            return;
-        }
-        const cartItems = loadCartFromStorage();
-        const existingItem = cartItems.find(function (item) {
-            return item.bookId === bookId;
-        });
-
-        const currentQuantity = existingItem ? existingItem.quantity : 0;
-        const quantity = currentQuantity + quantityToAdd;
-        const error = await setCartQuantity(bookId, quantity);
-
-        if (error) {
-            showCartToast(error, 'warning');
-            return;
-        }
-
-        updateCartCount();
-        const message = quantityToAdd === 1
-            ? 'Book added to your cart.'
-            : quantityToAdd + ' copies added to your cart.';
-
-        showCartToast(message, 'success');
-    } catch (error) {
-        showCartToast('Unable to update your cart. ' + error.message, 'warning');
-    } finally {
-        setCustomerBusy(false);
-    }
 }

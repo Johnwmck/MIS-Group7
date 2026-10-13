@@ -1,4 +1,4 @@
-// Customer book page: cover/summary carousel, purchase controls, and similar books.
+// Customer book page: cover, purchase controls, description, and similar books.
 
 // --- Page state and DOM references ---
 
@@ -117,7 +117,7 @@ function createSimilarBookCard(book) {
     title.appendChild(link);
 
     const author = document.createElement('p');
-    author.className = 'card-text mb-1';
+    author.className = 'card-text book-author';
     author.textContent = book.author;
 
     const price = document.createElement('p');
