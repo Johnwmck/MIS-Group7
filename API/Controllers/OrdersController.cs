@@ -75,10 +75,12 @@ public class OrdersController : ControllerBase
                     return Conflict(new { error = $"{book.Title} is currently unavailable." });
                 if (entry.Quantity > book.Inventory)
                     return Conflict(new { error = $"{book.Title}: the requested quantity exceeds available stock." });
-                if (entry.Price != book.Price)
+                // Charge the promotional price when one applies.
+                var unitPrice = book.SalePrice ?? book.Price;
+                if (entry.Price != unitPrice)
                     return Conflict(new { error = $"{book.Title}: the price changed. Refresh checkout to review it." });
 
-                try { total += book.Price * entry.Quantity; }
+                try { total += unitPrice * entry.Quantity; }
                 catch (OverflowException)
                 {
                     return BadRequest(new { error = "The order total is too large." });
@@ -87,7 +89,7 @@ public class OrdersController : ControllerBase
                 {
                     BookId = book.Id,
                     Title = book.Title,
-                    Price = book.Price,
+                    Price = unitPrice,
                     Quantity = entry.Quantity
                 });
             }

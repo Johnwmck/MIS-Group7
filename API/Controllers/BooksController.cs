@@ -146,6 +146,7 @@ public class BooksController : ControllerBase
         Status = book.Status,
         Image = book.Image,
         Description = book.Description,
+        AuthorBio = book.AuthorBio,
         ManualStockOverride = book.ManualStockOverride,
         SeriesName = book.SeriesName,
         SeriesOrder = book.SeriesOrder

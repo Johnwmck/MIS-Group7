@@ -16,11 +16,17 @@ public class Book
     public string Genre { get; set; } = string.Empty;
     [JsonRequired]
     public decimal Price { get; set; }
+    // Read-only and derived from the active promotion, so clients cannot set it
+    // and saved state never depends on it. Null when the book is not on sale.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? SalePrice => Services.HalloweenPromotion.GetSalePrice(Id, Price);
     [JsonRequired]
     public int Inventory { get; set; }
     public string Status { get; set; } = string.Empty;
     public string Image { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    // Shown as "About the Author"; optional, seeded per primary author.
+    public string AuthorBio { get; set; } = string.Empty;
     // null/false = automatic availability; true = forced out of stock.
     // Zero physical inventory always remains unavailable.
     public bool? ManualStockOverride { get; set; }

@@ -63,7 +63,7 @@
         quantityRow.className = 'd-flex align-items-center gap-2 small';
         const quantity = document.createElement('span');
         quantity.className = 'text-muted';
-        quantity.textContent = item.quantity + ' x ' + currencyFormatter.format(book.price);
+        quantity.textContent = item.quantity + ' x ' + currencyFormatter.format(getBookPrice(book));
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
@@ -89,7 +89,7 @@
 
         const lineTotal = document.createElement('span');
         lineTotal.className = 'small';
-        lineTotal.textContent = currencyFormatter.format(book.price * item.quantity);
+        lineTotal.textContent = currencyFormatter.format(getBookPrice(book) * item.quantity);
 
         row.append(cover, details, lineTotal);
         return row;
@@ -130,7 +130,7 @@
             return {
                 bookId: item.bookId,
                 quantity: item.quantity,
-                price: book.price
+                price: getBookPrice(book)
             };
         }));
 
@@ -184,7 +184,7 @@
             // The cart page reports and removes entries whose books are gone.
             if (!book) return;
 
-            subtotal += book.price * item.quantity;
+            subtotal += getBookPrice(book) * item.quantity;
             list.appendChild(createPreviewItem(item, book));
         });
 

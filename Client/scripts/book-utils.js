@@ -1,4 +1,4 @@
-// Shared currency formatting and catalog availability display.
+// Shared currency formatting, promotional pricing, catalog availability display, and cover image fallback.
 
 // --- Display configuration and input checks ---
 
@@ -50,6 +50,25 @@ function getOrderTotals(order) {
     };
 }
 
+// --- Promotional pricing ---
+// The API sets salePrice only while a promotion applies to the book. Customer
+// pages show and submit this price; the admin portal edits the regular price.
+
+function isBookOnSale(book) {
+    return book.salePrice != null && book.salePrice < book.price;
+}
+
+function getBookPrice(book) {
+    return isBookOnSale(book) ? book.salePrice : book.price;
+}
+
+// Sale price with the regular price struck through. Numbers only, so safe as HTML.
+function formatBookPriceHtml(book) {
+    if (!isBookOnSale(book)) return currencyFormatter.format(book.price);
+    return `<span class="sale-price">${currencyFormatter.format(book.salePrice)}</span>
+        <s class="regular-price">${currencyFormatter.format(book.price)}</s>`;
+}
+
 // --- Stock display rules ---
 
 function isBookOutOfStock(book) {
@@ -69,3 +88,18 @@ function getCustomerAvailability(book) {
     return 'In stock';
 }
 
+
+// --- Cover image fallback ---
+// One capture-phase listener covers every <img> on the page, including ones
+// rendered later. Blank 1x1 placeholder images (Open Library's "no cover"
+// response) load successfully, so they are caught on load as well as on error.
+const COVER_PLACEHOLDER_SRC = 'images/cover-placeholder.svg';
+
+function useCoverPlaceholder(event) {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || img.src.endsWith(COVER_PLACEHOLDER_SRC)) return;
+    if (event.type === 'error' || img.naturalWidth <= 1) img.src = COVER_PLACEHOLDER_SRC;
+}
+
+document.addEventListener('error', useCoverPlaceholder, true);
+document.addEventListener('load', useCoverPlaceholder, true);

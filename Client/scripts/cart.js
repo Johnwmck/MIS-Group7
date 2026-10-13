@@ -51,13 +51,13 @@ async function renderCart(extraMessages = []) {
                 return book.id === item.bookId;
             });
 
-            const subtotal = book.price * item.quantity;
+            const subtotal = getBookPrice(book) * item.quantity;
             total += subtotal;
 
             const row = document.createElement('tr');
             const values = [
                 book.title,
-                currencyFormatter.format(book.price),
+                currencyFormatter.format(getBookPrice(book)),
                 item.quantity,
                 currencyFormatter.format(subtotal),
             ];
@@ -221,7 +221,7 @@ checkoutButton.addEventListener('click', async function () {
         return {
             bookId: item.bookId,
             quantity: item.quantity,
-            price: book.price
+            price: getBookPrice(book)
         };
     });
 
