@@ -34,9 +34,15 @@ public sealed class BookstoreStore : IDisposable
         {
             if (File.Exists(statePath))
             {
-                state = JsonSerializer.Deserialize<BookstoreState>(File.ReadAllText(statePath), json)
+                var savedJson = File.ReadAllText(statePath);
+                state = JsonSerializer.Deserialize<BookstoreState>(savedJson, json)
                     ?? throw new InvalidDataException("Saved bookstore state is empty.");
                 SavedStateValidation.Validate(state);
+                if (CatalogMetadataMigration.Apply(state, savedJson, seedPath))
+                {
+                    SavedStateValidation.Validate(state);
+                    WriteState(state);
+                }
             }
             else
             {

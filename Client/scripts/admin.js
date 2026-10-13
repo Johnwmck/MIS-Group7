@@ -107,7 +107,7 @@ async function updateAdminBookField(bookId, field, value) {
 function renderInventory() {
     inventoryTableBody.innerHTML = '';
 
-    bookList.forEach(function (book) {
+    inventoryPager.getVisibleBooks().forEach(function (book) {
         const outOfStock = isBookOutOfStock(book);
         const statusButtonClass = book.status === 'Active'
             ? 'btn-success'
@@ -232,16 +232,18 @@ function renderInventory() {
         inventoryTableBody.appendChild(row);
     });
 
-    applyTitleFilter();
 }
 
 const titleSearchInput = document.getElementById('titleSearchInput');
 
+const inventoryPager = createInventoryPager(
+    () => bookList, () => titleSearchInput.value,
+    () => adminBusy, renderInventory, inventoryTableBody
+);
+
 function applyTitleFilter() {
-    const query = titleSearchInput.value.trim().toLowerCase();
-    Array.from(inventoryTableBody.children).forEach(function (row) {
-        row.classList.toggle('d-none', !row.dataset.title.includes(query));
-    });
+    inventoryPager.reset();
+    renderInventory();
 }
 
 const resetCatalogButton = document.getElementById('resetCatalogButton');

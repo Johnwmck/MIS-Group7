@@ -88,8 +88,14 @@ It is never rewritten by purchases or catalog operations. Saved state lives at
 Books, orders, counters, and a format version are saved together using a flushed
 temporary file and atomic replacement. A failed save does not change live state.
 
-A saved-state file takes precedence over changed seed data; use Reset Demo Data
-to apply a revised seed catalog. Invalid or unreadable saved data stops startup
+A saved-state file takes precedence over changed seed data. One conservative
+metadata migration now applies reviewed duplicate-author aliases and descriptions
+that exactly match the pre-enrichment seed fingerprints. Missing biography fields
+in older JSON are filled from the enriched seed. Inventory, orders, IDs, revisions,
+custom descriptions, and explicitly saved biographies (including empty ones)
+are preserved. Restart the API to apply this migration; no reset is needed.
+For other seed changes, use Reset Demo Data only if deliberately discarding demo
+changes/orders. Invalid or unreadable saved data stops startup
 instead of silently wiping changes. Back up that file before recovery. Only one
 API process may own a given state file; a process lock prevents accidental sharing.
 For isolated tests, configuration overrides `Bookstore:StatePath` and
@@ -145,6 +151,15 @@ themselves or own page globals. Order CSV behavior is unchanged; catalog CSV
 import/export is separate future work. No bundler or ES module conversion is needed.
 
 ## Review checks
+
+Navigation links are visible and wrap on narrow screens. Catalog ordering defaults
+to Title A–Z; both internal inventory tables paginate filtered results in groups
+of 32, with genre filters and title/author/price/inventory sorting applied before
+paging. Shared customer tiles support quick Add to Cart. The cart preview opens
+on hover or keyboard focus and refreshes prices and availability on reopening.
+Public-page navigation shows the signed-in internal account and links to its
+portal; signed-out visitors see Internal Login.
+Unavailable selections require cart review; failures do not clear saved selections.
 
 Build the API:
 

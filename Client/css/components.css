@@ -27,12 +27,13 @@
     cursor: pointer;
 }
 
-/* Every cover is cropped to a 2:3 book shape so rows line up. */
+/* Consistent frames preserve whole covers rather than cropping their artwork. */
 .book-grid .card-img-top {
     width: 100%;
     height: auto;
     aspect-ratio: 2 / 3;
-    object-fit: cover;
+    object-fit: contain;
+    background: var(--bs-light, #f8f9fa);
     border-radius: 0.4rem;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -165,9 +166,12 @@
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
 }
 
-.cart-menu:hover .cart-preview,
-.cart-menu:focus-within .cart-preview {
+.cart-menu.is-open .cart-preview {
     display: block;
+}
+
+@media (max-width: 575.98px) {
+    .cart-preview { position: fixed; top: auto; right: 0.75rem; max-height: 65vh; overflow-y: auto; }
 }
 
 .cart-preview-items {
@@ -179,3 +183,8 @@
     padding: 0 0.4rem;
     font-size: 0.75rem;
 }
+
+/* Let inventory controls retain readable digits; long titles wrap instead. */
+.inventory-quantity-control { min-width: 12rem; width: 12rem; }
+.inventory-quantity-control .inventory-input { min-width: 6rem; }
+.inventory-title { min-width: 12rem; white-space: normal; overflow-wrap: anywhere; }

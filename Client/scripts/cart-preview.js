@@ -14,8 +14,16 @@
     preview.className = 'cart-preview card';
     cartMenu.appendChild(preview);
 
-    // One catalog request per page view; the preview rereads the cart each time.
     let booksRequest = null;
+    let latestBooks = [];
+    let refreshAgain = false;
+    let previewOpen = false;
+    let hovered = false;
+    let dismissed = false;
+    let checkoutBusy = false;
+    preview.id = 'navbarCartPreview';
+    cartNavLink.setAttribute('aria-controls', preview.id);
+    cartNavLink.setAttribute('aria-expanded', 'false');
 
     function showPreviewMessage(message) {
         const text = document.createElement('p');
@@ -75,7 +83,7 @@
         removeButton.addEventListener('click', function (event) {
             removeOneCopy(book.id);
             cartCount.textContent = getCartItemCount(loadCartFromStorage());
-            renderCartPreview();
+            drawCartPreview(latestBooks);
 
             // A keyboard press loses its button in the redraw; returning focus
             // to the Cart link keeps the preview open.
@@ -98,11 +106,14 @@
     // Checkout needs current prices and stock, so this asks the API again
     // instead of trusting the copy the preview was drawn from.
     async function startCheckout() {
+        if (checkoutBusy) return;
+        checkoutBusy = true;
         let books;
         try {
             books = await loadBooksFromApi();
         } catch (error) {
-            showPreviewMessage('Unable to start checkout. Open the cart to retry.');
+            showPreviewMessage('Unable to start checkout. Saved selections are unchanged. Open the cart to retry.');
+            checkoutBusy = false;
             return;
         }
 
@@ -152,28 +163,34 @@
     }
 
     async function renderCartPreview() {
-        if (loadCartFromStorage().length === 0) {
-            showPreviewMessage('Your cart is empty.');
-            return;
-        }
-
-        if (!booksRequest) {
-            showPreviewMessage('Loading cart...');
-            booksRequest = loadBooksFromApi();
-        }
-
-        let books;
+        // Share an in-flight request, but schedule a fresh read if reopened or
+        // changed meanwhile. An older response must not redraw a newer request.
+        if (booksRequest) { refreshAgain = true; return; }
+        showPreviewMessage('Loading current prices and availability...');
+        booksRequest = loadBooksFromApi();
         try {
-            books = await booksRequest;
+            const books = await booksRequest;
+            if (!refreshAgain && previewOpen) {
+                latestBooks = books;
+                drawCartPreview(books);
+            }
         } catch (error) {
+            if (!refreshAgain && previewOpen)
+                showPreviewMessage('Unable to refresh cart. Your selections are preserved. Open the cart to retry.');
+        } finally {
             booksRequest = null;
-            showPreviewMessage('Unable to load your cart. Open the cart to retry.');
-            return;
+            if (refreshAgain) {
+                refreshAgain = false;
+                if (previewOpen) renderCartPreview();
+            }
         }
+    }
 
+    function drawCartPreview(books) {
         const list = document.createElement('ul');
         list.className = 'list-group list-group-flush cart-preview-items';
         let subtotal = 0;
+        let needsReview = false;
 
         // Reread after the request: the cart may have changed while it was loading.
         loadCartFromStorage().forEach(function (item) {
@@ -181,8 +198,15 @@
                 return book.id === item.bookId;
             });
 
-            // The cart page reports and removes entries whose books are gone.
-            if (!book) return;
+            const error = getCartQuantityError(book, item.quantity);
+            if (error) {
+                needsReview = true;
+                const warning = document.createElement('li');
+                warning.className = 'list-group-item text-danger small';
+                warning.textContent = (book ? book.title + ': ' : '') + error;
+                list.appendChild(warning);
+                return;
+            }
 
             subtotal += getBookPrice(book) * item.quantity;
             list.appendChild(createPreviewItem(item, book));
@@ -208,14 +232,21 @@
         viewCartLink.textContent = 'View Cart';
         summary.appendChild(viewCartLink);
 
+        if (needsReview) {
+            const warning = document.createElement('p');
+            warning.className = 'small text-danger mt-2 mb-0';
+            warning.textContent = 'Selections changed. Totals above cover available items only; review your cart before checkout.';
+            summary.appendChild(warning);
+        }
         const checkoutButton = document.createElement('button');
         checkoutButton.type = 'button';
         checkoutButton.className = 'btn btn-success btn-sm w-100 mt-2';
-        checkoutButton.textContent = 'Checkout';
+        checkoutButton.textContent = needsReview ? 'Review Cart' : 'Checkout';
 
         checkoutButton.addEventListener('click', function () {
             checkoutButton.disabled = true;
-            startCheckout();
+            if (needsReview) window.location.href = 'cart.html';
+            else startCheckout();
         });
 
         summary.appendChild(checkoutButton);
@@ -223,13 +254,39 @@
         preview.replaceChildren(list, summary);
     }
 
-    cartMenu.addEventListener('mouseenter', renderCartPreview);
-
-    // Clicking inside the preview focuses a button; rebuilding the preview then
-    // would replace that button mid-click and cancel the click.
-    cartMenu.addEventListener('focusin', function (event) {
-        if (!preview.contains(event.target)) {
+    function updateOpenState() {
+        const nextOpen = !dismissed && (hovered || cartMenu.contains(document.activeElement));
+        cartMenu.classList.toggle('is-open', nextOpen);
+        cartNavLink.setAttribute('aria-expanded', String(nextOpen));
+        if (nextOpen && !previewOpen) {
+            previewOpen = true;
             renderCartPreview();
+        } else if (!nextOpen) previewOpen = false;
+    }
+    cartMenu.addEventListener('mouseenter', () => { dismissed = false; hovered = true; updateOpenState(); });
+    cartMenu.addEventListener('mouseleave', () => { hovered = false; updateOpenState(); });
+    // Internal focus transitions must not redraw buttons mid-click.
+    cartMenu.addEventListener('focusin', event => {
+        if (!cartMenu.contains(event.relatedTarget)) dismissed = false;
+        updateOpenState();
+    });
+    cartMenu.addEventListener('focusout', () => setTimeout(updateOpenState, 0));
+    cartMenu.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            dismissed = true; hovered = false; previewOpen = false;
+            cartMenu.classList.remove('is-open');
+            cartNavLink.setAttribute('aria-expanded', 'false');
+            event.preventDefault();
+            cartNavLink.focus();
         }
     });
+    document.addEventListener('click', event => {
+        if (!cartMenu.contains(event.target)) { dismissed = true; hovered = false; updateOpenState(); }
+    });
+    function selectionChanged() {
+        cartCount.textContent = getCartItemCount(loadCartFromStorage());
+        if (previewOpen && !preview.contains(document.activeElement)) renderCartPreview();
+    }
+    window.addEventListener('storage', selectionChanged);
+    window.addEventListener('cartchanged', selectionChanged);
 })();

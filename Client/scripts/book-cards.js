@@ -40,16 +40,49 @@ function createBookCard(book) {
     `;
 
     col.querySelector('.card').addEventListener('click', function (event) {
-        if (event.target.closest('.favorite-button')) {
+        if (event.target.closest('.favorite-button, .quick-add-button')) {
             return;
         }
 
         openBookDetails(book);
     });
+    const card = col.querySelector('.card');
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', 'View ' + book.title);
+    card.addEventListener('keydown', event => {
+        if (event.target === card && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            openBookDetails(book);
+        }
+    });
 
     const favoriteButton = createFavoriteButton(book);
     favoriteButton.classList.add('position-absolute', 'top-0', 'start-0', 'm-2');
     col.querySelector('.position-relative').appendChild(favoriteButton);
+
+    const quickAdd = document.createElement('button');
+    quickAdd.type = 'button';
+    quickAdd.className = 'btn btn-primary btn-sm quick-add-button';
+    quickAdd.textContent = 'Add to Cart';
+    quickAdd.dataset.unavailable = String(book.status !== 'Active' || outOfStock);
+    quickAdd.disabled = customerBusy || quickAdd.dataset.unavailable === 'true';
+    quickAdd.setAttribute('aria-label', 'Add one copy of ' + book.title + ' to cart');
+    quickAdd.addEventListener('click', async function (event) {
+        event.stopPropagation();
+        if (customerBusy) return;
+        setCustomerBusy(true);
+        try {
+            const current = loadCartFromStorage().find(item => item.bookId === book.id);
+            const error = await setCartQuantity(book.id, (current ? current.quantity : 0) + 1);
+            if (error) { showCartToast(error, 'warning'); return; }
+            updateCartCount();
+            showCartToast('Book added to your cart.', 'success');
+            window.dispatchEvent(new Event('cartchanged'));
+        } catch (error) {
+            showCartToast('Unable to add to cart. ' + error.message, 'warning');
+        } finally { setCustomerBusy(false); }
+    });
+    col.querySelector('.card-body').appendChild(quickAdd);
 
     return col;
 }
@@ -79,4 +112,7 @@ function updateCartCount() {
 // refresh waits its turn.
 function setCustomerBusy(busy) {
     customerBusy = busy;
+    document.querySelectorAll('.quick-add-button').forEach(button => {
+        button.disabled = busy || button.dataset.unavailable === 'true';
+    });
 }

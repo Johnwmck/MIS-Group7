@@ -13,7 +13,7 @@ const inventoryTableBody = document.getElementById('inventoryTableBody');
 function renderInventory() {
     inventoryTableBody.innerHTML = '';
 
-    bookList.forEach(function (book) {
+    inventoryPager.getVisibleBooks().forEach(function (book) {
         const outOfStock = isBookOutOfStock(book);
         const stockBadgeClass = outOfStock ? 'bg-danger' : 'bg-success';
         const stockButtonClass = outOfStock
@@ -27,13 +27,13 @@ function renderInventory() {
                 <img src="${book.image}" alt="${book.title}"
                     style="width: 40px; height: 55px; object-fit: contain;">
             </td>
-            <td>${book.title}</td>
+            <td class="inventory-title">${book.title}</td>
             <td>${book.author}</td>
             <td>
-                <div class="input-group input-group-sm" style="max-width: 110px;">
+                <div class="input-group input-group-sm inventory-quantity-control">
                     <input type="number" min="0"
                         class="form-control inventory-input" value="${book.inventory}"
-                        style="min-width: 40px;">
+                        aria-label="Inventory for ${book.title}">
                     <button type="button"
                         class="btn btn-outline-secondary update-inventory-btn">
                         Update
@@ -87,16 +87,18 @@ function renderInventory() {
         inventoryTableBody.appendChild(row);
     });
 
-    applyTitleFilter();
 }
 
 const titleSearchInput = document.getElementById('titleSearchInput');
 
+const inventoryPager = createInventoryPager(
+    () => bookList, () => titleSearchInput.value,
+    () => inventoryBusy, renderInventory, inventoryTableBody
+);
+
 function applyTitleFilter() {
-    const query = titleSearchInput.value.trim().toLowerCase();
-    Array.from(inventoryTableBody.children).forEach(function (row) {
-        row.classList.toggle('d-none', !row.dataset.title.includes(query));
-    });
+    inventoryPager.reset();
+    renderInventory();
 }
 
 titleSearchInput.addEventListener('input', applyTitleFilter);

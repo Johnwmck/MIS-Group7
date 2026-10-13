@@ -28,6 +28,15 @@
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
+/* Visible primary links on every page; wrapping keeps narrow screens usable. */
+.site-primary-nav { width: 100%; }
+.site-primary-nav .navbar-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+}
+.site-navbar .container-fluid { flex-wrap: wrap; gap: 0.5rem; }
+
 .site-navbar.navbar-hidden {
     transform: translateY(-100%);
     opacity: 0;

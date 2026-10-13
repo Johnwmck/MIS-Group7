@@ -37,9 +37,7 @@ function renderSiteFooter() {
                     <ul class="list-unstyled site-footer-links mb-0">
                         <li><a href="mailto:help@team7books.example">help@team7books.example</a></li>
                         <li><a href="tel:+12055550107">(205) 555-0107</a></li>
-                        <li>Mon&ndash;Sat, 9 AM &ndash; 6 PM CT</li>
-                        <li>Free shipping on orders over $35</li>
-                        <li>Returns accepted within 30 days</li>
+                        <li class="small text-muted">Demo contact information; not a live support service.</li>
                     </ul>
                 </div>
 

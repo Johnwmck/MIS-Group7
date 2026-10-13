@@ -96,7 +96,7 @@ function populateGenreFilter() {
 function getVisibleCatalogBooks() {
     const query = searchInput.value.trim().toLowerCase();
     const selectedGenre = genreFilterSelect.value;
-    const selectedSort = sortSelect.value;
+    const selectedSort = sortSelect.value || 'title-asc';
 
     let visibleBooks = bookList.filter(function (book) {
         return book.status === 'Active';

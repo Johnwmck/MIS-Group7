@@ -89,3 +89,18 @@ function initializeInternalAccess(requiredRole) {
         });
     }
 }
+
+// Public pages link directly to the signed-in person's portal, while internal
+// pages retain their existing account display and logout controls.
+function refreshAccountNavigation() {
+    if (document.getElementById('currentInternalUser')) return;
+    const session = getValidatedInternalSession();
+    document.querySelectorAll('.site-primary-nav a[data-account-link], .site-primary-nav a[href="login.html"]')
+        .forEach(function (link) {
+            link.dataset.accountLink = 'true';
+            link.textContent = session ? session.name + ' (' + session.role + ')' : 'Internal Login';
+            link.href = session ? getInternalHomePage(session.role) : 'login.html';
+        });
+}
+window.addEventListener('pageshow', refreshAccountNavigation);
+window.addEventListener('storage', refreshAccountNavigation);

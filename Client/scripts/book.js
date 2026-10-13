@@ -38,6 +38,11 @@ function renderBookDetails(book) {
     document.getElementById('bookGenre').textContent = book.genre;
     document.getElementById('bookTitle').textContent = book.title;
     document.getElementById('bookByline').textContent = 'by ' + book.author;
+    const series = document.getElementById('bookSeries');
+    series.textContent = book.seriesName
+        ? book.seriesName + (book.seriesOrder == null ? '' : ' — Reading sequence ' + book.seriesOrder)
+        : '';
+    series.classList.toggle('d-none', !book.seriesName);
 
     const cover = document.getElementById('bookCover');
     cover.src = book.image;
