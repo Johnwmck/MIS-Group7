@@ -105,49 +105,40 @@
 
     // Checkout needs current prices and stock, so this asks the API again
     // instead of trusting the copy the preview was drawn from.
-    async function startCheckout() {
+    async function startCheckout(button) {
         if (checkoutBusy) return;
         checkoutBusy = true;
-        let books;
         try {
-            books = await loadBooksFromApi();
+            const books = await loadBooksFromApi();
+            const cartItems = loadCartFromStorage();
+            const needsReview = cartItems.length === 0 || cartItems.some(function (item) {
+                const book = books.find(function (book) { return book.id === item.bookId; });
+                return getCartQuantityError(book, item.quantity) !== '';
+            });
+
+            // Review changed selections without silently editing the saved cart.
+            if (needsReview) {
+                window.location.href = 'cart.html';
+                return;
+            }
+
+            saveCheckoutState('cart', cartItems.map(function (item) {
+                const book = books.find(function (book) { return book.id === item.bookId; });
+                return { bookId: item.bookId, quantity: item.quantity, price: getBookPrice(book) };
+            }));
+            sessionStorage.removeItem('purchaseUncertain');
+            window.location.href = 'checkout.html';
         } catch (error) {
             showPreviewMessage('Unable to start checkout. Saved selections are unchanged. Open the cart to retry.');
+        } finally {
+            // Navigation can retain this JS/DOM in the back-forward cache.
+            // Release both guards on every exit, including successful redirects.
             checkoutBusy = false;
-            return;
+            if (button.isConnected) button.disabled = false;
         }
-
-        const cartItems = loadCartFromStorage();
-        const needsReview = cartItems.length === 0 || cartItems.some(function (item) {
-            const book = books.find(function (book) {
-                return book.id === item.bookId;
-            });
-
-            return getCartQuantityError(book, item.quantity) !== '';
-        });
-
-        // The cart page explains and fixes anything that changed, so nothing
-        // is altered here.
-        if (needsReview) {
-            window.location.href = 'cart.html';
-            return;
-        }
-
-        saveCheckoutState('cart', cartItems.map(function (item) {
-            const book = books.find(function (book) {
-                return book.id === item.bookId;
-            });
-
-            return {
-                bookId: item.bookId,
-                quantity: item.quantity,
-                price: getBookPrice(book)
-            };
-        }));
-
-        sessionStorage.removeItem('purchaseUncertain');
-        window.location.href = 'checkout.html';
     }
+
+    // --- Preview totals and fresh-data rendering ---
 
     function createTotalRow(label, amount, emphasized) {
         const row = document.createElement('div');
@@ -246,13 +237,15 @@
         checkoutButton.addEventListener('click', function () {
             checkoutButton.disabled = true;
             if (needsReview) window.location.href = 'cart.html';
-            else startCheckout();
+            else startCheckout(checkoutButton);
         });
 
         summary.appendChild(checkoutButton);
 
         preview.replaceChildren(list, summary);
     }
+
+    // --- Hover/focus access and history restoration ---
 
     function updateOpenState() {
         const nextOpen = !dismissed && (hovered || cartMenu.contains(document.activeElement));
@@ -287,6 +280,18 @@
         cartCount.textContent = getCartItemCount(loadCartFromStorage());
         if (previewOpen && !preview.contains(document.activeElement)) renderCartPreview();
     }
+    window.addEventListener('pageshow', function (event) {
+        if (!event.persisted) return;
+        checkoutBusy = false;
+        preview.querySelectorAll('button').forEach(button => { button.disabled = false; });
+        // Close retained UI; its next hover/focus will request current API data.
+        dismissed = false;
+        hovered = false;
+        previewOpen = false;
+        cartMenu.classList.remove('is-open');
+        cartNavLink.setAttribute('aria-expanded', 'false');
+        cartCount.textContent = getCartItemCount(loadCartFromStorage());
+    });
     window.addEventListener('storage', selectionChanged);
     window.addEventListener('cartchanged', selectionChanged);
 })();

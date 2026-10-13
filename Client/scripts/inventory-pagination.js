@@ -1,6 +1,7 @@
 // Shared internal table paging. Filter before slicing; page changes never
 // mutate catalog data, so row actions retain the displayed book revisions.
 function createInventoryPager(getBooks, getQuery, isBusy, onChange, table) {
+    // --- Filter controls and retained view state ---
     const size = 32;
     let page = 1;
     let genreOptions = '';
@@ -27,6 +28,7 @@ function createInventoryPager(getBooks, getQuery, isBusy, onChange, table) {
     const genre = filters.querySelector('#inventoryGenreFilter');
     const sort = filters.querySelector('#inventorySort');
     for (const select of [genre, sort]) select.addEventListener('change', () => { page = 1; onChange(); });
+    // --- Range summary and page navigation ---
     const controls = document.createElement('div');
     controls.className = 'd-flex flex-wrap justify-content-between align-items-center gap-2 my-3';
     controls.setAttribute('aria-label', 'Inventory pagination');
@@ -50,6 +52,8 @@ function createInventoryPager(getBooks, getQuery, isBusy, onChange, table) {
             const query = getQuery().trim().toLowerCase();
             const books = getBooks();
             const genres = [...new Set(books.map(book => book.genre))].sort((a, b) => a.localeCompare(b));
+            // Only rebuild genre choices when the catalog changes, preserving
+            // keyboard focus and selection during normal page changes.
             if (genreOptions !== JSON.stringify(genres)) {
                 genreOptions = JSON.stringify(genres);
                 const selected = genre.value;
@@ -59,6 +63,8 @@ function createInventoryPager(getBooks, getQuery, isBusy, onChange, table) {
             }
             genre.disabled = isBusy();
             sort.disabled = isBusy();
+            // Filter/sort all matches before slicing. Internal price sorting
+            // uses regular price, consistent with the control labels.
             const matching = books.filter(book =>
                 (!genre.value || book.genre === genre.value) &&
                 ['title', 'author', 'genre', 'isbn'].some(field =>

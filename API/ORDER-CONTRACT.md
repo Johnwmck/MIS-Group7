@@ -26,17 +26,19 @@ used. Cart mode is a browser concern and is not part of the transaction.
 
 - Require a nonblank customer name and a valid, nonblank email; trim both for storage.
 - Require a nonempty item list, no null entries, positive integer book IDs and
-  quantities, and a supplied nonnegative decimal price.
+  quantities, and a supplied nonnegative price with at most two decimal places.
 - Reject duplicate book IDs rather than purchasing their combined quantities.
 - Require every book to exist, be Active, have positive inventory, and not have
   `manualStockOverride` set to `true` (the existing forced-out-of-stock rule).
   A `false` override never permits buying more than actual inventory.
 - Require each quantity to fit current inventory.
-- Require the reviewed price to equal the current catalog price. Reject a price
+- Require the reviewed price to equal the current effective price (sale price
+  when the promotion applies, otherwise regular price). Reject a price
   change and require a fresh review; never silently charge a different amount.
-- Calculate totals using server catalog prices and decimal arithmetic, rounded
-  to two decimal places with midpoint rounding away from zero. Reject arithmetic
-  overflow without changing state.
+- Calculate subtotal from server effective unit prices using decimal arithmetic.
+  Add 10% tax, rounded once on that subtotal to cents with midpoint rounding away
+  from zero, and save subtotal/rate/tax/total. Reject arithmetic overflow without
+  changing state.
 - Validate all items, prepare the order, reduce inventory, and save the order
   under one shared synchronization boundary with catalog mutations. A rejected
   request changes neither inventory nor order history.
@@ -55,7 +57,7 @@ Success returns HTTP 201 with the completed `Order` directly:
   "customerName": "Demo Customer",
   "customerEmail": "customer@example.com",
   "items": [
-    { "bookId": 1, "title": "To Kill a Mockingbird", "price": 14.99, "quantity": 2 }
+    { "bookId": 1, "title": "Harry Potter and the Sorcerer's Stone", "price": 14.99, "quantity": 2 }
   ],
   "subtotal": 29.98,
   "taxRate": 0.10,
@@ -82,7 +84,6 @@ Books and orders are persisted together in local JSON state; server restart
 preserves them. First startup imports the seed CSV. `POST /api/demo/reset`
 restores that catalog, clears orders, resets counters, and persists the result.
 Disk-save failure returns HTTP 503 without applying the proposed change.
-Browser login is not
-server authorization. These are local prototype endpoints, not production
+Browser login is not server authorization. These are local prototype endpoints, not production
 authentication or payment processing. Automatic purchase retries are not safe:
 this contract does not yet include idempotency keys.

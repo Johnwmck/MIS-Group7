@@ -7,8 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="SeedData/description-baseline.json"
+    <!-- JSON is already included by the Web SDK; only update its copy metadata. -->
+    <Content Update="SeedData/description-baseline.json"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Local user state must never be shipped or copied over a runtime snapshot. -->
+    <Content Update="App_Data/**" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
     <Content Include="../Seed Data/Team7_SeedBooks.csv" Link="SeedData/Team7_SeedBooks.csv"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

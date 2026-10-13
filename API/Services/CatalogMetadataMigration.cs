@@ -9,6 +9,7 @@ namespace Team7Books.Api.Services;
 // short/custom descriptions; matching ISBN and prior-seed fingerprint is required.
 public static class CatalogMetadataMigration
 {
+    // Exact aliases only; never split genuine coauthors/credits at every comma.
     private static readonly Dictionary<string, string> aliases = new()
     {
         ["F. Scott Fitzgerald, Francis Scott Fitzgerald"] = "F. Scott Fitzgerald",
@@ -22,6 +23,8 @@ public static class CatalogMetadataMigration
         var baseline = JsonSerializer.Deserialize<Dictionary<string, string>>(
             File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "SeedData", "description-baseline.json")))!;
         using var saved = JsonDocument.Parse(savedJson);
+        // Raw JSON distinguishes absent legacy fields from explicitly empty
+        // biographies; the model's default value cannot make that distinction.
         var missingBio = saved.RootElement.GetProperty("books").EnumerateArray()
             .Where(book => !book.TryGetProperty("authorBio", out _))
             .Select(book => book.GetProperty("id").GetInt32()).ToHashSet();

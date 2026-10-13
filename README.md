@@ -87,6 +87,10 @@ It is never rewritten by purchases or catalog operations. Saved state lives at
 `API/App_Data/bookstore-state.json` during normal local runs and is Git-ignored.
 Books, orders, counters, and a format version are saved together using a flushed
 temporary file and atomic replacement. A failed save does not change live state.
+Local App_Data files are also excluded from build/publish copying, so personal
+snapshots are not shipped or copied over runtime data. Seed CSV and description
+baseline metadata are copied to output; the baseline updates the Web SDK's
+existing JSON content item rather than including it a second time.
 
 A saved-state file takes precedence over changed seed data. One conservative
 metadata migration now applies reviewed duplicate-author aliases and descriptions
@@ -113,8 +117,7 @@ Malformed snapshots are rejected without modifying the saved file.
 
 Series names and nullable decimal reading sequences are preserved by catalog
 operations, editable in Admin, and used to order a book's series under Similar
-Books. Browser demo
-accounts remain browser-only. The reset endpoint has no server authentication:
+Books. Browser demo accounts remain browser-only. The reset endpoint has no server authentication:
 this is still a local prototype, not a production-ready deployment.
 
 ## Backend checkout design
@@ -158,7 +161,10 @@ of 32, with genre filters and title/author/price/inventory sorting applied befor
 paging. Shared customer tiles support quick Add to Cart. The cart preview opens
 on hover or keyboard focus and refreshes prices and availability on reopening.
 Public-page navigation shows the signed-in internal account and links to its
-portal; signed-out visitors see Internal Login.
+portal; signed-out visitors see Internal Login. Internal portals retain account
+and logout controls. Preview checkout releases its busy state on every exit,
+including redirects; browser Back restoration closes retained preview UI so
+reopening requests fresh API data.
 Unavailable selections require cart review; failures do not clear saved selections.
 
 Build the API:
@@ -170,3 +176,8 @@ dotnet build API/Team7Books.Api.csproj
 Review cart and Buy Now purchases, tax breakdowns, order reports, and CSV export.
 Check that catalog changes and orders survive an API restart. Test invalid ISBNs
 and prices, then confirm Reset Demo Data restores seeds and clears orders.
+
+Also start checkout from the navbar preview, go Back, and start it again. Check
+failure recovery, changed selections, and keyboard focus inside the preview.
+Use isolated state for automated checks; do not reset saved demo data just to
+make verification pass.
