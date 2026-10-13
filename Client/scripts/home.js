@@ -1,5 +1,6 @@
-// Customer home page: Best Sellers and one carousel row per leading genre.
-// Depends on book-cards.js and reporting.js. The full catalog is catalog.html.
+// Customer home page: seasonal promotion banner, Best Sellers, and one carousel
+// row per leading genre. Depends on book-cards.js and reporting.js. The full
+// catalog is catalog.html.
 
 // --- Page state and DOM references ---
 
@@ -9,10 +10,18 @@ const bestSellersCarousel = document.getElementById('bestSellersCarousel');
 const bestSellersControls = document.getElementById('bestSellersControls');
 const genreRows = document.getElementById('genreRows');
 const homeLoadMessage = document.getElementById('homeLoadMessage');
+const brandHero = document.getElementById('brandHero');
+const promoBanner = document.getElementById('promoBanner');
+const promoCovers = document.getElementById('promoCovers');
+const promoBookCount = document.getElementById('promoBookCount');
+const promoPicksSection = document.getElementById('promoPicksSection');
+const promoPicks = document.getElementById('promoPicks');
+const promoPicksControls = document.getElementById('promoPicksControls');
 
 const BOOKS_PER_ROW = 12;
 const BOOKS_PER_SLIDE = 4;
 const GENRE_ROW_COUNT = 4;
+const PROMO_COVER_COUNT = 5;
 
 let bookList = [];
 
@@ -74,6 +83,54 @@ function renderBestSellers(recommendations) {
     // A single slide has nowhere to move.
     bestSellersControls.classList.toggle('d-none', recommendations.length <= BOOKS_PER_SLIDE);
     customerBestSellersEmpty.classList.toggle('d-none', recommendations.length > 0);
+}
+
+// --- Seasonal promotion ---
+// The API decides which books are on sale (salePrice); the banner and its row
+// appear only while at least one active book is discounted.
+
+function renderPromotion() {
+    const saleBooks = bookList.filter(function (book) {
+        return book.status === 'Active' && isBookOnSale(book);
+    });
+    const promotionActive = saleBooks.length > 0;
+
+    brandHero.classList.toggle('d-none', promotionActive);
+    promoBanner.classList.toggle('d-none', !promotionActive);
+    promoPicksSection.classList.toggle('d-none', !promotionActive);
+    if (!promotionActive) return;
+
+    promoBookCount.textContent = saleBooks.length;
+
+    // Books a customer can buy now lead the row, Horror first for the season.
+    const orderedBooks = saleBooks.slice().sort(function (a, b) {
+        return isBookOutOfStock(a) - isBookOutOfStock(b) ||
+            (b.genre === 'Horror') - (a.genre === 'Horror');
+    });
+
+    fillBookCarousel(promoPicks, orderedBooks.map(function (book) {
+        return { book: book };
+    }));
+    promoPicksControls.classList.toggle('d-none', orderedBooks.length <= BOOKS_PER_SLIDE);
+
+    // Covers spread evenly across the sale list so the fan mixes authors.
+    const coverCount = Math.min(PROMO_COVER_COUNT, orderedBooks.length);
+    const step = coverCount > 1 ? (orderedBooks.length - 1) / (coverCount - 1) : 0;
+    const coverBooks = Array.from({ length: coverCount }, function (_, index) {
+        return orderedBooks[Math.round(index * step)];
+    });
+
+    promoCovers.innerHTML = '';
+    coverBooks.forEach(function (book, index) {
+        const cover = document.createElement('img');
+        cover.className = 'promo-cover';
+        cover.src = book.image;
+        cover.alt = '';
+        const offset = index - (coverBooks.length - 1) / 2;
+        cover.style.setProperty('--fan-index', offset);
+        cover.style.setProperty('--fan-lift', Math.abs(offset));
+        promoCovers.appendChild(cover);
+    });
 }
 
 // --- Genre rows ---
@@ -213,6 +270,7 @@ async function refreshHomePage() {
         reconcileFavorites(bookList);
         updateFavoriteDisplays();
 
+        renderPromotion();
         renderGenreRows();
         try {
             renderBestSellers(getCustomerBestSellers(
@@ -228,6 +286,7 @@ async function refreshHomePage() {
         homeLoadMessage.classList.add('d-none');
     } catch (error) {
         bookList = [];
+        renderPromotion();
         genreRows.innerHTML = '';
         renderBestSellers([]);
         customerBestSellersEmpty.textContent = 'Best Sellers are unavailable right now.';

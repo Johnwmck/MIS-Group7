@@ -127,11 +127,11 @@ function getVisibleCatalogBooks() {
         });
     } else if (selectedSort === 'price-asc') {
         visibleBooks.sort(function (a, b) {
-            return a.price - b.price;
+            return getBookPrice(a) - getBookPrice(b);
         });
     } else if (selectedSort === 'price-desc') {
         visibleBooks.sort(function (a, b) {
-            return b.price - a.price;
+            return getBookPrice(b) - getBookPrice(a);
         });
     }
 

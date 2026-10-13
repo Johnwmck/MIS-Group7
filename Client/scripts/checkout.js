@@ -75,7 +75,7 @@ async function renderCheckoutReview() {
                 showCheckoutMessage(error + ' Please return and review your selection.');
                 return;
             }
-            reviewedItems.push({ bookId: book.id, quantity: item.quantity, price: book.price });
+            reviewedItems.push({ bookId: book.id, quantity: item.quantity, price: getBookPrice(book) });
         }
         const pricesChanged = reviewedItems.some(function (item, index) {
             return item.price !== checkoutState.items[index].price;

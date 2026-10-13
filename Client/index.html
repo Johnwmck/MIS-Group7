@@ -70,15 +70,67 @@
         </div>
     </nav>
 
-    <div class="brand-hero text-center">
+    <!-- home.js shows one of these once books load: the seasonal promo while
+         any book is on sale, otherwise the standard hero. -->
+    <div class="brand-hero text-center d-none" id="brandHero">
         <h1>Find your next favorite read</h1>
         <p class="mx-auto">Curated fiction, nonfiction, and everything between.</p>
         <div class="accent-rule"></div>
         <a class="btn btn-light mt-4" href="catalog.html">Browse the Full Catalog</a>
     </div>
 
+    <section class="promo-banner d-none" id="promoBanner" aria-labelledby="promoBannerHeading">
+        <div class="promo-moon" aria-hidden="true"></div>
+        <svg class="promo-bat promo-bat-1" viewBox="0 0 64 28" aria-hidden="true">
+            <path d="M32 10C30 6 29 4 29 4L28 8C22 3 10 2 0 8C6 9 9 13 9 18C13 15 18 15 21 19C24 16 28 16 30 20L32 24L34 20C36 16 40 16 43 19C46 15 51 15 55 18C55 13 58 9 64 8C54 2 42 3 36 8L35 4C35 4 34 6 32 10Z" />
+        </svg>
+        <svg class="promo-bat promo-bat-2" viewBox="0 0 64 28" aria-hidden="true">
+            <path d="M32 10C30 6 29 4 29 4L28 8C22 3 10 2 0 8C6 9 9 13 9 18C13 15 18 15 21 19C24 16 28 16 30 20L32 24L34 20C36 16 40 16 43 19C46 15 51 15 55 18C55 13 58 9 64 8C54 2 42 3 36 8L35 4C35 4 34 6 32 10Z" />
+        </svg>
+        <svg class="promo-bat promo-bat-3" viewBox="0 0 64 28" aria-hidden="true">
+            <path d="M32 10C30 6 29 4 29 4L28 8C22 3 10 2 0 8C6 9 9 13 9 18C13 15 18 15 21 19C24 16 28 16 30 20L32 24L34 20C36 16 40 16 43 19C46 15 51 15 55 18C55 13 58 9 64 8C54 2 42 3 36 8L35 4C35 4 34 6 32 10Z" />
+        </svg>
+
+        <div class="container promo-banner-inner">
+            <div class="promo-copy">
+                <p class="promo-eyebrow">Team 7 Books Halloween Sale</p>
+                <h1 id="promoBannerHeading">Thrills <span>&amp;</span> Chills</h1>
+                <p class="promo-offer"><strong>10% off</strong> <span id="promoBookCount">25</span> spine-tingling
+                    thrillers and horror favorites</p>
+                <a class="btn promo-cta" href="#promoPicksSection">Shop the Sale</a>
+                <p class="promo-fineprint">Discount applied automatically at checkout. Ends October 31.</p>
+            </div>
+            <div class="promo-covers" id="promoCovers" aria-hidden="true"></div>
+        </div>
+    </section>
+
     <div class="container">
         <p id="homeLoadMessage" class="alert alert-info d-none" role="status"></p>
+
+        <section class="mb-4 d-none" id="promoPicksSection" aria-labelledby="promoPicksHeading">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h2 class="h3 mb-0" id="promoPicksHeading">Thrills &amp; Chills: 10% Off</h2>
+                    <span class="text-muted small">Halloween picks, through October 31</span>
+                </div>
+
+                <div class="d-none" id="promoPicksControls">
+                    <button type="button" class="btn btn-outline-primary carousel-step"
+                        data-bs-target="#promoPicksCarousel" data-bs-slide="prev" aria-label="Previous sale books">
+                        &lsaquo;
+                    </button>
+                    <button type="button" class="btn btn-outline-primary carousel-step"
+                        data-bs-target="#promoPicksCarousel" data-bs-slide="next" aria-label="Next sale books">
+                        &rsaquo;
+                    </button>
+                </div>
+            </div>
+
+            <div id="promoPicksCarousel" class="carousel slide book-row-carousel" data-bs-interval="false"
+                aria-label="Halloween sale books">
+                <div class="carousel-inner book-grid" id="promoPicks"></div>
+            </div>
+        </section>
 
         <section class="mb-4" aria-labelledby="bestSellersHeading">
             <div class="d-flex justify-content-between align-items-center mb-2">

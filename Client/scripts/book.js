@@ -49,7 +49,7 @@ function renderBookDetails(book) {
     document.getElementById('authorBioToggle').textContent = 'About ' + book.author.split(',')[0].trim();
     document.getElementById('authorBioSection').classList.toggle('d-none', !book.authorBio);
 
-    document.getElementById('bookPrice').textContent = currencyFormatter.format(book.price);
+    document.getElementById('bookPrice').innerHTML = formatBookPriceHtml(book);
     const availability = document.getElementById('bookAvailability');
     availability.textContent = getCustomerAvailability(book);
     availability.classList.toggle('text-danger', isBookOutOfStock(book));
@@ -126,7 +126,7 @@ function createSimilarBookCard(book) {
 
     const price = document.createElement('p');
     price.className = 'card-text fw-bold mb-0';
-    price.textContent = currencyFormatter.format(book.price);
+    price.innerHTML = formatBookPriceHtml(book);
 
     body.append(title, author, price);
     card.append(cover, favoriteButton, body);
@@ -227,7 +227,7 @@ buyNowButton.addEventListener('click', async function () {
         saveCheckoutState('buyNow', [{
             bookId: latestBook.id,
             quantity: quantity,
-            price: latestBook.price
+            price: getBookPrice(latestBook)
         }]);
 
         sessionStorage.removeItem('purchaseUncertain');

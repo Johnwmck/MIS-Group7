@@ -27,11 +27,14 @@ function createBookCard(book) {
                 ${outOfStock
             ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>'
             : ''}
+                ${isBookOnSale(book)
+            ? '<span class="badge promo-badge position-absolute bottom-0 start-0 m-2">10% off</span>'
+            : ''}
             </div>
             <div class="card-body">
                 <h3 class="card-title h6">${book.title}</h3>
                 <p class="card-text book-author">${book.author}</p>
-                <p class="card-text fw-bold">${currencyFormatter.format(book.price)}</p>
+                <p class="card-text fw-bold">${formatBookPriceHtml(book)}</p>
             </div>
         </div>
     `;

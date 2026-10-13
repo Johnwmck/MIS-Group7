@@ -52,7 +52,7 @@ function createFavoriteRow(book) {
     bookCell.appendChild(details);
 
     const priceCell = document.createElement('td');
-    priceCell.textContent = currencyFormatter.format(book.price);
+    priceCell.textContent = currencyFormatter.format(getBookPrice(book));
 
     const availabilityCell = document.createElement('td');
     availabilityCell.textContent = getCustomerAvailability(book);

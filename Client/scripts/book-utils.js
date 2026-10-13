@@ -1,4 +1,4 @@
-// Shared currency formatting, catalog availability display, and cover image fallback.
+// Shared currency formatting, promotional pricing, catalog availability display, and cover image fallback.
 
 // --- Display configuration and input checks ---
 
@@ -48,6 +48,25 @@ function getOrderTotals(order) {
         subtotal: order.subtotal ?? order.total ?? 0,
         taxRate: order.taxRate ?? 0, tax: order.tax ?? 0, total: order.total ?? 0
     };
+}
+
+// --- Promotional pricing ---
+// The API sets salePrice only while a promotion applies to the book. Customer
+// pages show and submit this price; the admin portal edits the regular price.
+
+function isBookOnSale(book) {
+    return book.salePrice != null && book.salePrice < book.price;
+}
+
+function getBookPrice(book) {
+    return isBookOnSale(book) ? book.salePrice : book.price;
+}
+
+// Sale price with the regular price struck through. Numbers only, so safe as HTML.
+function formatBookPriceHtml(book) {
+    if (!isBookOnSale(book)) return currencyFormatter.format(book.price);
+    return `<span class="sale-price">${currencyFormatter.format(book.salePrice)}</span>
+        <s class="regular-price">${currencyFormatter.format(book.price)}</s>`;
 }
 
 // --- Stock display rules ---
