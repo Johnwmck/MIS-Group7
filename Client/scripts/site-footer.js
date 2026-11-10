@@ -35,6 +35,7 @@ function renderSiteFooter() {
                 <div class="col-6 col-md-4 col-lg-4">
                     <h2 class="site-footer-heading">Customer Service</h2>
                     <ul class="list-unstyled site-footer-links mb-0">
+                        <li><a href="help.html">Help &amp; FAQ (chat with our assistant)</a></li>
                         <li><a href="mailto:help@team7books.example">help@team7books.example</a></li>
                         <li><a href="tel:+12055550107">(205) 555-0107</a></li>
                         <li class="small text-muted">Demo contact information; not a live support service.</li>

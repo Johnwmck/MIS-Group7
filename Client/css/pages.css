@@ -11,6 +11,7 @@
    10. Home carousels ........... book-row carousels and catalog heading
    12. Book page ................ cover, purchase controls, description
    13. Admin reports ............ stat cards on admin.html
+   15. Help page ................ chat column and FAQ accordion on help.html
    ========================================================================== */
 
 
@@ -385,4 +386,42 @@
 
 #statsSummaryRow .fs-4 {
     color: var(--brand-crimson-dark);
+}
+
+
+/* ==========================================================================
+   15. Help page
+   Full-page assistant beside the FAQ accordion on help.html.
+   ========================================================================== */
+
+.help-intro {
+    max-width: 48rem;
+    color: var(--brand-gray-dark);
+}
+
+.help-section-heading {
+    font-size: 1.15rem;
+    margin-bottom: 0.75rem;
+}
+
+.help-faq .accordion-button {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.help-faq .accordion-button:not(.collapsed) {
+    background: var(--brand-crimson-tint);
+    color: var(--brand-crimson-dark);
+    box-shadow: none;
+}
+
+.help-faq .accordion-button:focus {
+    border-color: var(--brand-crimson);
+    box-shadow: 0 0 0 0.25rem rgba(158, 27, 50, 0.2);
+}
+
+.help-faq .accordion-body {
+    font-size: 0.92rem;
+    line-height: 1.55;
 }
