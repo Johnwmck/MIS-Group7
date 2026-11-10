@@ -106,31 +106,6 @@
     <div class="container">
         <p id="homeLoadMessage" class="alert alert-info d-none" role="status"></p>
 
-        <section class="mb-4 d-none" id="promoPicksSection" aria-labelledby="promoPicksHeading">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                    <h2 class="h3 mb-0" id="promoPicksHeading">Thrills &amp; Chills: 10% Off</h2>
-                    <span class="text-muted small">Halloween picks, through October 31</span>
-                </div>
-
-                <div class="d-none" id="promoPicksControls">
-                    <button type="button" class="btn btn-outline-primary carousel-step"
-                        data-bs-target="#promoPicksCarousel" data-bs-slide="prev" aria-label="Previous sale books">
-                        &lsaquo;
-                    </button>
-                    <button type="button" class="btn btn-outline-primary carousel-step"
-                        data-bs-target="#promoPicksCarousel" data-bs-slide="next" aria-label="Next sale books">
-                        &rsaquo;
-                    </button>
-                </div>
-            </div>
-
-            <div id="promoPicksCarousel" class="carousel slide book-row-carousel" data-bs-interval="false"
-                aria-label="Halloween sale books">
-                <div class="carousel-inner book-grid" id="promoPicks"></div>
-            </div>
-        </section>
-
         <section class="mb-4" aria-labelledby="bestSellersHeading">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <div>
@@ -159,6 +134,32 @@
             <p class="text-muted mb-0" id="customerBestSellersEmpty">
                 Best sellers will appear after customers place orders.
             </p>
+        </section>
+
+        <!-- Shown by home.js only while at least one book is on sale. -->
+        <section class="mb-4 d-none" id="promoPicksSection" aria-labelledby="promoPicksHeading">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h2 class="h3 mb-0" id="promoPicksHeading">Thrills &amp; Chills: 10% Off</h2>
+                    <span class="text-muted small">Halloween picks, through October 31</span>
+                </div>
+
+                <div class="d-none" id="promoPicksControls">
+                    <button type="button" class="btn btn-outline-primary carousel-step"
+                        data-bs-target="#promoPicksCarousel" data-bs-slide="prev" aria-label="Previous sale books">
+                        &lsaquo;
+                    </button>
+                    <button type="button" class="btn btn-outline-primary carousel-step"
+                        data-bs-target="#promoPicksCarousel" data-bs-slide="next" aria-label="Next sale books">
+                        &rsaquo;
+                    </button>
+                </div>
+            </div>
+
+            <div id="promoPicksCarousel" class="carousel slide book-row-carousel" data-bs-interval="false"
+                aria-label="Halloween sale books">
+                <div class="carousel-inner book-grid" id="promoPicks"></div>
+            </div>
         </section>
 
         <div id="genreRows"></div>

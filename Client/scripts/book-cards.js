@@ -27,14 +27,13 @@ function createBookCard(book) {
                 ${outOfStock
             ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>'
             : ''}
-                ${isBookOnSale(book)
-            ? '<span class="badge promo-badge position-absolute bottom-0 start-0 m-2">10% off</span>'
-            : ''}
             </div>
             <div class="card-body">
                 <h3 class="card-title h6">${book.title}</h3>
                 <p class="card-text book-author">${book.author}</p>
-                <p class="card-text fw-bold">${formatBookPriceHtml(book)}</p>
+                <p class="card-text book-price fw-bold">${formatBookPriceHtml(book)}${isBookOnSale(book)
+            ? ' <span class="badge promo-badge ms-1">10% off</span>'
+            : ''}</p>
             </div>
         </div>
     `;
@@ -55,10 +54,6 @@ function createBookCard(book) {
             openBookDetails(book);
         }
     });
-
-    const favoriteButton = createFavoriteButton(book);
-    favoriteButton.classList.add('position-absolute', 'top-0', 'start-0', 'm-2');
-    col.querySelector('.position-relative').appendChild(favoriteButton);
 
     const quickAdd = document.createElement('button');
     quickAdd.type = 'button';
@@ -82,7 +77,13 @@ function createBookCard(book) {
             showCartToast('Unable to add to cart. ' + error.message, 'warning');
         } finally { setCustomerBusy(false); }
     });
-    col.querySelector('.card-body').appendChild(quickAdd);
+
+    // Add to Cart and the heart share a row pinned to the bottom of the tile,
+    // so the buttons line up across a row of books.
+    const actions = document.createElement('div');
+    actions.className = 'book-card-actions';
+    actions.append(quickAdd, createFavoriteButton(book));
+    col.querySelector('.card-body').appendChild(actions);
 
     return col;
 }

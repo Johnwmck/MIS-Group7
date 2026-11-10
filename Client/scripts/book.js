@@ -2,7 +2,7 @@
 
 // --- Page state and DOM references ---
 
-const SIMILAR_BOOK_LIMIT = 8;
+const SIMILAR_BOOK_LIMIT = 12;
 
 const bookId = Number(new URLSearchParams(window.location.search).get('id'));
 
@@ -110,9 +110,6 @@ function createSimilarBookCard(book) {
     cover.alt = '';
     cover.className = 'card-img-top';
 
-    const favoriteButton = createFavoriteButton(book);
-    favoriteButton.classList.add('position-absolute', 'top-0', 'start-0', 'm-2');
-
     const body = document.createElement('div');
     body.className = 'card-body';
 
@@ -130,11 +127,17 @@ function createSimilarBookCard(book) {
     author.textContent = book.author;
 
     const price = document.createElement('p');
-    price.className = 'card-text fw-bold mb-0';
+    price.className = 'card-text book-price fw-bold mb-0';
     price.innerHTML = formatBookPriceHtml(book);
 
-    body.append(title, author, price);
-    card.append(cover, favoriteButton, body);
+    // Price and heart share a row pinned to the bottom of the tile, so they
+    // line up across a row of books.
+    const actions = document.createElement('div');
+    actions.className = 'book-card-actions justify-content-between';
+    actions.append(price, createFavoriteButton(book));
+
+    body.append(title, author, actions);
+    card.append(cover, body);
     col.appendChild(card);
     return col;
 }
