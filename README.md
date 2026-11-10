@@ -39,6 +39,39 @@ Bootstrap and book cover images require internet access.
   admin pages.
 - **Employee:** Manage inventory and availability; view server orders and export CSV.
 - **Admin:** Add, edit, and delete books; manage inventory and view reports.
+- **Help:** http://localhost:5187/help.html has the full-page assistant and the FAQ list.
+  The same assistant is the "Ask us" button in the corner of every customer page.
+
+## AI assistant
+
+The assistant answers store questions (shipping, returns, exchanges, tax, how to
+order), searches the catalog and recommends books, adds books to your cart, looks
+up an order when you give the order number and the checkout email, and offers
+buttons to open pages. It cannot cancel, change, or refund orders.
+
+It runs in one of two modes, chosen automatically on every message:
+
+- **Local AI** — the server sends the conversation to a model running in
+  [Ollama](https://ollama.com) on the same computer. Nothing leaves your machine
+  and there is no API key or cost. To enable it:
+
+  1. Install Ollama (macOS: `brew install ollama`, or the download on ollama.com).
+  2. Pull the model once (about 4.7 GB): `ollama pull qwen2.5:7b`
+  3. Make sure Ollama is running (`ollama serve`, or the menu-bar app) before
+     starting the site. Replies take a few seconds each on a laptop.
+
+  The model, server URL, and timeout are in the `Assistant` section of
+  `API/appsettings.json`. `llama3.2:3b` is a smaller, faster choice that is less
+  reliable at using the catalog tools.
+
+- **Quick answers** — if Ollama is not running or the model is not pulled, the
+  server falls back to a built-in keyword bot that handles the same FAQs, book
+  search, add-to-cart, order lookup, and page links. The chat header shows which
+  mode is active, so the demo works on any machine without extra setup.
+
+Policy text the assistant uses is placeholder demo content in
+`API/Services/AssistantKnowledge.cs`; the FAQ accordion on help.html reads the
+same list. Conversations are kept in the browser tab only (`sessionStorage`).
 
 ## Demo accounts
 

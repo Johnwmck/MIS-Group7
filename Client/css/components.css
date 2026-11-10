@@ -10,6 +10,7 @@
                                   (home carousels, catalog, similar books)
     9. Favorites ................ heart buttons and navbar favorites link
    11. Cart preview ............. navbar Cart hover/focus dropdown
+   14. Assistant ................ "Ask us" launcher, chat panel, book cards
    ========================================================================== */
 
 
@@ -212,3 +213,361 @@
 .inventory-quantity-control { min-width: 12rem; width: 12rem; }
 .inventory-quantity-control .inventory-input { min-width: 6rem; }
 .inventory-title { min-width: 12rem; white-space: normal; overflow-wrap: anywhere; }
+
+
+/* ==========================================================================
+   14. Assistant
+   Floating "Ask us" launcher and chat panel on customer pages (assistant.js
+   mounts them); the same panel is laid out inline on help.html.
+   ========================================================================== */
+
+.assistant-launcher {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1045;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.1rem;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--brand-crimson-dark), var(--brand-crimson));
+    color: #fff;
+    font-family: var(--font-body);
+    font-weight: 600;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.assistant-launcher:hover,
+.assistant-launcher:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+    outline: 0;
+}
+
+.assistant-launcher:focus-visible {
+    box-shadow: 0 0 0 0.25rem rgba(158, 27, 50, 0.35), 0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
+/* Keep cart toasts clear of the launcher. */
+.has-assistant .toast-container {
+    margin-bottom: 4.25rem;
+}
+
+.assistant-panel {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    color: var(--brand-ink);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 1rem;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+    font-family: var(--font-body);
+}
+
+#assistantPanel {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 5rem;
+    z-index: 1046;
+    width: 24rem;
+    max-width: calc(100vw - 2.5rem);
+    height: 34rem;
+    max-height: calc(100vh - 6.5rem);
+}
+
+#assistantPanel[hidden] {
+    display: none;
+}
+
+.assistant-panel--inline {
+    height: 36rem;
+    max-height: 75vh;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.assistant-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, var(--brand-crimson-dark), var(--brand-crimson));
+    color: #fff;
+}
+
+.assistant-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    line-height: 1.2;
+}
+
+.assistant-subtitle {
+    font-size: 0.75rem;
+    opacity: 0.85;
+}
+
+.assistant-header-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.assistant-icon-button {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.assistant-icon-button:hover,
+.assistant-icon-button:focus-visible {
+    background: rgba(255, 255, 255, 0.28);
+    outline: 0;
+}
+
+.assistant-messages {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: var(--brand-ivory-soft);
+}
+
+.assistant-turn {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-width: 92%;
+}
+
+.assistant-turn--user {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.assistant-turn--assistant {
+    align-self: flex-start;
+}
+
+.assistant-bubble {
+    padding: 0.6rem 0.85rem;
+    border-radius: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.assistant-turn--user .assistant-bubble {
+    background: var(--brand-crimson);
+    color: #fff;
+    border-bottom-right-radius: 0.3rem;
+}
+
+.assistant-turn--assistant .assistant-bubble {
+    border-bottom-left-radius: 0.3rem;
+}
+
+.assistant-bullet::before {
+    content: "• ";
+    color: var(--brand-crimson);
+}
+
+.assistant-meta,
+.assistant-note {
+    font-size: 0.75rem;
+    color: var(--brand-gray-dark);
+}
+
+.assistant-note {
+    font-weight: 600;
+    color: #1d6b3a;
+}
+
+.assistant-typing {
+    display: inline-flex;
+    gap: 0.3rem;
+    padding: 0.8rem 0.9rem;
+}
+
+.assistant-typing span {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--brand-gray);
+    animation: assistant-bounce 1s infinite ease-in-out;
+}
+
+.assistant-typing span:nth-child(2) { animation-delay: 0.15s; }
+.assistant-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes assistant-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+    40% { transform: translateY(-4px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .assistant-typing span { animation: none; }
+    .assistant-launcher { transition: none; }
+}
+
+/* Book cards under an assistant reply. */
+.assistant-books {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+.assistant-book {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    background: #fff;
+    border-radius: 0.6rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.assistant-book-cover img {
+    width: 40px;
+    height: 60px;
+    object-fit: contain;
+    background: var(--bs-light, #f8f9fa);
+    border-radius: 0.25rem;
+}
+
+.assistant-book-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.assistant-book-title {
+    display: block;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--brand-ink);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.assistant-book-title:hover,
+.assistant-book-title:focus-visible {
+    color: var(--brand-crimson);
+    text-decoration: underline;
+}
+
+.assistant-book-meta {
+    font-size: 0.78rem;
+    color: var(--brand-gray-dark);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.assistant-book-price {
+    color: var(--brand-ink);
+    font-weight: 600;
+}
+
+.assistant-book-add {
+    flex: 0 0 auto;
+    min-width: 3.5rem;
+}
+
+.assistant-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.assistant-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem 0;
+    background: #fff;
+}
+
+.assistant-suggestions[hidden] {
+    display: none;
+}
+
+.assistant-chip {
+    border: 1px solid var(--brand-crimson);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--brand-crimson);
+    font-size: 0.78rem;
+    padding: 0.25rem 0.7rem;
+}
+
+.assistant-chip:hover,
+.assistant-chip:focus-visible {
+    background: var(--brand-crimson-tint);
+    outline: 0;
+}
+
+.assistant-form {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 0.5rem;
+    background: #fff;
+}
+
+.assistant-form .btn {
+    flex: 0 0 auto;
+}
+
+.assistant-status {
+    min-height: 1.1rem;
+    margin: 0;
+    padding: 0 1rem 0.6rem;
+    font-size: 0.75rem;
+    color: var(--brand-gray-dark);
+    background: #fff;
+}
+
+/* Phones: the panel takes the whole screen and the launcher tucks away. */
+@media (max-width: 575.98px) {
+    #assistantPanel {
+        inset: 0;
+        width: auto;
+        max-width: none;
+        height: auto;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .assistant-launcher.is-open {
+        display: none;
+    }
+
+    .assistant-launcher-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+
+    .assistant-launcher {
+        padding: 0.85rem;
+    }
+}

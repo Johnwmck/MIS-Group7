@@ -7,6 +7,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddSingleton<Team7Books.Api.Services.BookstoreStore>();
 
+// --- Customer assistant: local Ollama model with a scripted fallback ---
+builder.Services.AddHttpClient<Team7Books.Api.Services.OllamaClient>();
+builder.Services.AddSingleton<Team7Books.Api.Services.AssistantTools>();
+builder.Services.AddSingleton<Team7Books.Api.Services.FallbackAssistant>();
+builder.Services.AddSingleton<Team7Books.Api.Services.AssistantService>();
+
 var app = builder.Build();
 // Fail startup on corrupt saved data; never silently overwrite it with seeds.
 app.Services.GetRequiredService<Team7Books.Api.Services.BookstoreStore>();
