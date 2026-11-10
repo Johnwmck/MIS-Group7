@@ -19,7 +19,7 @@ const promoPicks = document.getElementById('promoPicks');
 const promoPicksControls = document.getElementById('promoPicksControls');
 
 const BOOKS_PER_ROW = 12;
-const BOOKS_PER_SLIDE = 4;
+const BOOKS_PER_SLIDE = 6;
 const GENRE_ROW_COUNT = 4;
 const PROMO_COVER_COUNT = 5;
 
@@ -27,7 +27,7 @@ let bookList = [];
 
 // --- Carousel rows ---
 
-// One slide per four books. An entry may carry a badge, such as copies sold.
+// One slide per six books. An entry may carry a badge, such as copies sold.
 function fillBookCarousel(carouselInner, entries) {
     carouselInner.innerHTML = '';
 
@@ -36,7 +36,7 @@ function fillBookCarousel(carouselInner, entries) {
         slide.className = 'carousel-item' + (start === 0 ? ' active' : '');
 
         const row = document.createElement('div');
-        row.className = 'row row-cols-2 row-cols-md-4 g-4';
+        row.className = 'row row-cols-2 row-cols-md-3 row-cols-lg-6 g-4';
 
         entries.slice(start, start + BOOKS_PER_SLIDE).forEach(function (entry) {
             const col = createBookCard(entry.book);

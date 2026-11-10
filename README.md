@@ -22,9 +22,9 @@ Bootstrap and book cover images require internet access.
 ## Pages
 
 - **Customer home:** Best Sellers and the four largest genres each show a carousel
-  of up to 12 books, four per slide. Searching from here opens the catalog.
-- **Catalog:** http://localhost:5187/catalog.html lists every active book, 32 per
-  page (eight rows of four), with search, genre filter, and sort. The view is kept
+  of up to 12 books, six per slide. Searching from here opens the catalog.
+- **Catalog:** http://localhost:5187/catalog.html lists every active book, 48 per
+  page (eight rows of six), with search, genre filter, and sort. The view is kept
   in the address (`?search=`, `?genre=`, `?sort=`, `?page=`).
   Add to Cart and Buy Now validate quantities against current API inventory.
 - **Book page:** Selecting a book opens `book.html?id=<book id>` with a cover and

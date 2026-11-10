@@ -6,8 +6,8 @@
 const bookContainer = document.getElementById('bookContainer');
 const catalogLoadMessage = document.getElementById('catalogLoadMessage');
 
-// Eight rows of four on a desktop-width catalog.
-const CATALOG_PAGE_SIZE = 32;
+// Eight rows of six on a desktop-width catalog.
+const CATALOG_PAGE_SIZE = 48;
 
 let bookList = [];
 

@@ -58,6 +58,8 @@
 }
 
 .book-grid .card-body {
+    display: flex;
+    flex-direction: column;
     padding: 0.6rem 0 0;
 }
 
@@ -82,6 +84,27 @@
     color: var(--brand-gray-dark);
 }
 
+/* Prices (and sale prices) read larger than the author line. */
+.book-grid .book-price {
+    font-size: 1.1rem;
+}
+
+/* Add to Cart (or the price) and the heart share one row pinned to the bottom
+   of the tile, so the buttons line up across a row whatever the title length. */
+.book-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.5rem;
+}
+
+.book-card-actions .favorite-button {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+}
+
 
 
 /* ==========================================================================
@@ -103,6 +126,7 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
     transition: transform 0.12s ease, box-shadow 0.12s ease;
     /* Stay clickable above a card's stretched link. */
+    position: relative;
     z-index: 2;
 }
 
