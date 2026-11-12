@@ -426,3 +426,55 @@
     font-size: 0.92rem;
     line-height: 1.55;
 }
+
+
+/* ==========================================================================
+   16. Customer account
+   Order history, refund receipts, and saved cards on account.html. The
+   refund note also marks returned orders in the staff order history.
+   ========================================================================== */
+
+.account-order .card-header,
+.account-receipt .card-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* A refund receipt reads as a separate document from the sale above it. */
+.account-receipt {
+    border-left: 4px solid var(--brand-crimson);
+}
+
+.account-receipt .card-header {
+    background-color: var(--brand-crimson-tint);
+}
+
+.order-totals {
+    max-width: 20rem;
+    margin-left: auto;
+}
+
+.order-totals > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.payment-card {
+    border-top: 3px solid var(--brand-crimson);
+}
+
+.payment-card-number {
+    font-size: 1.15rem;
+    letter-spacing: 0.08em;
+}
+
+.refund-note {
+    background-color: var(--brand-crimson-tint);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+}

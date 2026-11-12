@@ -29,8 +29,6 @@
                         <a class="nav-link" href="index.html">Home</a>
                     </li>
                     <li class="nav-item"><a class="nav-link" href="catalog.html">Catalog</a></li>
-                    <li class="nav-item"><a class="nav-link" href="favorites.html">Favorites</a></li>
-                    <li class="nav-item"><a class="nav-link" href="cart.html">Cart</a></li>
                     <li class="nav-item">
                         <a class="nav-link" href="employee.html">Employee Portal</a>
                     </li>
@@ -182,9 +180,27 @@
                         <h2 id="orderHistoryHeading">Order History</h2>
                     </div>
 
-                    <button type="button" class="btn btn-outline-primary" id="orderExportButton">
-                        Export CSV
-                    </button>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <!-- Returns = returned or cancelled orders; Orders = everything else.
+                             Export CSV exports the orders shown. -->
+                        <div class="btn-group" role="group" aria-label="Show orders">
+                            <input type="radio" class="btn-check" name="orderStatusFilter" id="orderFilterAll"
+                                value="all" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="orderFilterAll">All</label>
+
+                            <input type="radio" class="btn-check" name="orderStatusFilter" id="orderFilterReturns"
+                                value="returns" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="orderFilterReturns">Returns</label>
+
+                            <input type="radio" class="btn-check" name="orderStatusFilter" id="orderFilterOrders"
+                                value="orders" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="orderFilterOrders">Orders</label>
+                        </div>
+
+                        <button type="button" class="btn btn-outline-primary" id="orderExportButton">
+                            Export CSV
+                        </button>
+                    </div>
                 </div>
 
                 <label class="visually-hidden" for="orderSearchInput">

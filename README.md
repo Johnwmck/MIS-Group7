@@ -31,14 +31,30 @@ Bootstrap and book cover images require internet access.
   summary carousel beside the price, quantity, Add to Cart, favorite, and Buy Now.
   Similar books (the rest of the series, then the author, then the genre) follow.
 - **Cart and checkout:** Review current API titles, prices, and availability,
-  then place an order through the server.
-- **Favorites:** Select the heart on any book to save it, then open the heart
-  link beside Cart to add saved books to the cart or remove them. Favorites stay
-  in this browser.
-- **Internal login:** Open http://localhost:5187/login.html to access employee or
-  admin pages.
+  then place an order through the server. Every order needs a card: guests type
+  one, and logged-in customers pick a saved card or type a new one (and can save
+  it to their account). See [Customer accounts](#customer-accounts).
+- **Favorites:** For logged-in customers only. Select the heart on any book to
+  save it, then open the heart link beside Cart to add saved books to the cart or
+  remove them. Favorites are saved to the customer's account, so they follow the
+  account to any browser. Guests see no hearts or Favorites link, and
+  favorites.html sends them to log in.
+- **Login:** http://localhost:5187/login.html is the one login page. Customers log
+  in with their email; staff log in with their username to reach the employee or
+  admin pages. A customer who is already logged in is sent to their account page.
+- **My Account:** http://localhost:5187/account.html opens from the customer's name
+  in the navbar. Like the staff portals, a section bar switches between Order
+  History (with returns and cancellations), Payment Methods, and Account Info. See
+  [Customer accounts](#customer-accounts).
+- **Create an account:** http://localhost:5187/signup.html collects first name,
+  last name, email, password, and an optional phone number. See
+  [Customer accounts](#customer-accounts).
 - **Employee:** Manage inventory and availability; view server orders and export CSV.
-- **Admin:** Add, edit, and delete books; manage inventory and view reports.
+- **Admin:** Add, edit, and delete books; manage inventory and view reports. Order
+  History has All / Returns / Orders buttons beside Export CSV: Returns shows
+  returned and cancelled orders, Orders shows the rest, and the export follows
+  the buttons and the search box.
+- The Employee and Admin navbars have no Favorites or Cart links.
 - **Help:** http://localhost:5187/help.html has the full-page assistant and the FAQ list.
   The same assistant is the "Ask us" button in the corner of every customer page.
 
@@ -82,6 +98,70 @@ same list. Conversations are kept in the browser tab only (`sessionStorage`).
 
 These are fake accounts for the local prototype.
 
+## Customer accounts
+
+Customers create their own accounts on signup.html; there are no seeded customer
+accounts. Accounts are saved by the API in `API/App_Data/bookstore-state.json`
+alongside books and orders, as a `customers` list (id, first and last name,
+lowercase email, optional phone, password hash, created date). Passwords are
+never stored in plain text: the API hashes them with ASP.NET Core's
+`PasswordHasher` (PBKDF2), and responses never include the hash.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/customers/register` | Create an account and log in |
+| `POST /api/customers/login` | Log in with email and password |
+| `POST /api/customers/logout` | Log out |
+| `GET /api/customers/me` | The logged-in customer, or 204 when nobody is logged in |
+| `PUT /api/customers/me` | Update name, email, and phone |
+| `POST /api/customers/me/password` | Change the password (needs the current one) |
+| `GET /api/customers/me/orders` | The customer's orders, newest first |
+| `POST /api/customers/me/orders/{id}/refund` | Return or cancel an order within 30 days |
+| `GET /api/customers/me/payment-methods` | Saved cards, default first |
+| `POST /api/customers/me/payment-methods` | Save a card |
+| `POST /api/customers/me/payment-methods/{id}/default` | Make a card the default |
+| `DELETE /api/customers/me/payment-methods/{id}` | Remove a card |
+| `GET /api/customers/me/favorites` | Favorite book IDs, in saved order |
+| `PUT /api/customers/me/favorites/{bookId}` | Add a favorite |
+| `DELETE /api/customers/me/favorites/{bookId}` | Remove a favorite |
+
+Login uses an HttpOnly, same-site cookie that lasts 7 days, so customers stay
+logged in across visits. Each email can hold one account (letter case is
+ignored). Names are required (up to 50 characters), passwords need 8 to 128
+characters, and a phone number, if given, needs 10 to 15 digits. Saved state from
+before customer accounts loads unchanged. Staff accounts are still the
+browser-only demo accounts above. The `/me` endpoints act only on the logged-in
+account and answer 401 when nobody is logged in.
+
+**Order history.** Orders placed while logged in are linked to the account
+(`customerId` on the order), so they appear on account.html; guest orders and
+orders placed before this feature do not. Within 30 days of the order date the
+customer can choose Return Order or Cancel Order. Either one opens a form that
+requires a reason from a list (comments are optional, or required for "Other",
+up to 500 characters). The whole order is refunded, its books go back into
+inventory, and a refund receipt (numbered R-&lt;order id&gt;) is added to the
+order and shown at the top of the history. The original sale is never deleted.
+Employee and Admin order history show the status, receipt, and reason; the CSV
+export adds status, refund, and payment columns; Admin sales totals and best
+sellers leave out refunded orders, and a Refunds Issued card shows the total.
+
+**Payment methods.** Customers can save up to 10 Visa, Mastercard, American
+Express, or Discover cards, choose a default, and remove cards. The browser
+checks the number (card type, length, and Luhn checksum) and sends only the card
+type, last four digits, expiration, and name on card; the full number is never
+sent or saved. Checkout requires a card: guests and customers without saved
+cards type one on the checkout page; customers with saved cards get their default
+card preselected, or choose "Use a new card". A logged-in customer's typed card
+is saved to their account with the order unless they uncheck "Save this card".
+The order saves the text "Visa ending in 4242" so later card changes cannot
+rewrite receipts. Nothing is charged. Card entry checks live in
+`payment-cards.js`, shared by checkout and the account page.
+
+**Favorites.** Favorites are saved on the customer's account (up to 500 books)
+instead of in the browser, so only logged-in customers have them and each
+account sees only its own. Favorites saved in a browser before this change are
+moved into the first account that logs in there.
+
 ## Current demo behavior
 
 Customer, Admin, and Employee share the local API catalog. First startup loads the
@@ -101,8 +181,8 @@ separate before-tax revenue from tax collected. Existing pre-tax orders retain
 their original totals and show zero tax. Changed prices require a fresh review. Failed requests preserve selections;
 an unconfirmed purchase result blocks resubmission until you check history and
 deliberately start another checkout. Buy Now leaves the saved cart separate.
-Admin's **Reset Demo Data** restores the CSV catalog, deletes completed orders,
-resets ID counters, and saves that demo state. It also clears the initiating
+Admin's **Reset Demo Data** restores the CSV catalog, deletes completed orders
+and customer accounts, resets ID counters, and saves that demo state. It also clears the initiating
 browser's cart, checkout selection, and demo accounts while preserving its Admin
 session. Other browsers/tabs should refresh and review their selections after reset.
 
@@ -171,12 +251,15 @@ scripts, in dependency order, before their page controller:
 | `book-utils.js` | Currency and stock-display rules |
 | `cart-state.js` | Cart selections and API reconciliation |
 | `book-cards.js` | Customer book cards and Add to Cart, shared by the home and catalog pages |
-| `favorites-state.js` | Saved favorites, navbar count, and heart buttons |
+| `favorites-state.js` | The logged-in customer's favorites (API), navbar link and count, and heart buttons |
+| `payment-cards.js` | Card entry checks (type, length, checksum, expiration) and saved-card display |
 | `cart-preview.js` | Navbar hover preview of cart items and totals, with one-copy removal and Checkout |
 | `checkout-state.js` | Checkout snapshots and customer validation |
 | `internal-users.js` | Prototype accounts and login sessions |
+| `customer-accounts.js` | Customer sign-up, login, logout, account info, orders, returns, and saved cards (API) |
+| `account.js` | The customer account page: order history and the return/cancel form, payment methods, account info |
 | `demo-reset.js` | Server demo reset and initiating-browser cleanup |
-| `section-nav.js` | Admin and Employee section bar; the URL hash keeps the open section |
+| `section-nav.js` | Admin, Employee, and account-page section bar; the URL hash keeps the open section |
 | `reporting.js` | Sales rankings, dashboard, recommendations, history rendering/search |
 | `order-export.js` | Order CSV formatting and download |
 
@@ -194,7 +277,8 @@ of 32, with genre filters and title/author/price/inventory sorting applied befor
 paging. Shared customer tiles support quick Add to Cart. The cart preview opens
 on hover or keyboard focus and refreshes prices and availability on reopening.
 Public-page navigation shows the signed-in internal account and links to its
-portal; signed-out visitors see Internal Login. Internal portals retain account
+portal, or the logged-in customer's name linking to their account page
+(account.html); everyone else sees Login. Internal portals retain account
 and logout controls. Preview checkout releases its busy state on every exit,
 including redirects; browser Back restoration closes retained preview UI so
 reopening requests fresh API data.

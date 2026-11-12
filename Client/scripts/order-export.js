@@ -23,6 +23,13 @@ function preserveExcelText(value) {
     return '="' + escapedValue + '"';
 }
 
+// Customer-written text that starts like a formula would run as one in Excel;
+// a leading apostrophe makes Excel show it as plain text.
+function neutralizeSpreadsheetFormula(value) {
+    const stringValue = String(value ?? '');
+    return /^[=+\-@\t\r]/.test(stringValue) ? "'" + stringValue : stringValue;
+}
+
 function buildOrderCsv(orders) {
     // Flatten each nested order item into its own spreadsheet row while
     // repeating the order and customer columns for filtering in Excel.
@@ -40,11 +47,19 @@ function buildOrderCsv(orders) {
             'Order Total (including tax)',
             'Order Subtotal',
             'Sales Tax Rate',
-            'Sales Tax'
+            'Sales Tax',
+            'Status',
+            'Refund Receipt',
+            'Refund Date',
+            'Refund Total',
+            'Refund Reason',
+            'Refund Comments',
+            'Payment Method'
         ]
     ];
 
     orders.forEach(function (order) {
+        const refund = order.refund || null;
         const items = Array.isArray(order.items) && order.items.length > 0
             ? order.items
             : [null];
@@ -77,7 +92,14 @@ function buildOrderCsv(orders) {
                 typeof order.total === 'number' ? order.total : '',
                 getOrderTotals(order).subtotal,
                 getOrderTotals(order).taxRate,
-                getOrderTotals(order).tax
+                getOrderTotals(order).tax,
+                getOrderStatusLabel(order),
+                refund ? getRefundReceiptNumber(order) : '',
+                refund ? formatOrderDate(refund.date) : '',
+                refund ? refund.total : '',
+                refund ? refund.reason : '',
+                refund ? neutralizeSpreadsheetFormula(refund.comments || '') : '',
+                order.paymentMethod || ''
             ]);
         });
     });

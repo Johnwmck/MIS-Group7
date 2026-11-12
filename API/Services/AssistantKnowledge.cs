@@ -26,10 +26,10 @@ public static class AssistantKnowledge
             "order date, items, and total. Shipping confirmations with tracking are emailed within one business day."),
 
         new("returns", "What is your return policy?",
-            "Books can be returned within 30 days of delivery for a full refund to the original payment method, " +
-            "as long as they are in resalable condition. Return shipping is free for damaged or incorrect items; " +
-            "otherwise a $4.99 return label fee is deducted from the refund. Refunds post 5-7 business days after " +
-            "we receive the return. To start a return, email " + SupportEmail + " with your order number."),
+            "Orders can be returned within 30 days of purchase for a full refund to the original payment method. " +
+            "If you were logged in when you ordered, open your account, choose Order History, select Return Order, " +
+            "and tell us why; a refund receipt appears in your order history right away. Refunds post 5-7 business " +
+            "days later. For guest orders, email " + SupportEmail + " with your order number."),
 
         new("exchanges", "Can I exchange a book?",
             "Yes. Within 30 days of delivery you can exchange a book for another title of equal or lesser value. " +
@@ -37,21 +37,25 @@ public static class AssistantKnowledge
             "a prepaid label and ship the replacement once the original is on its way back."),
 
         new("cancel", "Can I cancel or change an order?",
-            "Orders can be cancelled or changed until they ship, usually within a few hours of being placed. " +
-            "The assistant cannot cancel or modify orders itself; please email " + SupportEmail +
-            " or call " + SupportPhone + " with your order number as soon as possible."),
+            "If you were logged in when you ordered, you can cancel the order within 30 days from your account: " +
+            "choose Order History, select Cancel Order, and tell us why. You get a full refund and a cancellation " +
+            "receipt in your order history. Orders cannot be changed after they are placed. The assistant cannot " +
+            "cancel orders itself; for guest orders, email " + SupportEmail + " or call " + SupportPhone + "."),
 
         new("tax", "Is sales tax charged?",
             "A 10% sales tax is added to every order at checkout and shown as a separate line on the order summary."),
 
         new("payment", "What payment methods do you accept?",
-            "This is a demo store: checkout only asks for your name and email, and no payment information is " +
-            "collected and nothing is charged. A real store would accept major credit cards here."),
+            "We accept Visa, Mastercard, American Express, and Discover, and every order needs a card at checkout. " +
+            "This is a demo store, so nothing is ever charged. Logged-in customers can save cards under Payment " +
+            "Methods in their account, or save the card they enter at checkout, and pick a saved card next time. " +
+            "Only the card type, last four digits, and expiration date are kept, never the full number."),
 
         new("ordering", "How do I place an order?",
             "Browse the Catalog or search from the top of any page, open a book, and choose Add to Cart or Buy Now. " +
-            "Open your Cart to review quantities, then choose Checkout, enter your name and email, and select " +
-            "Place Order. You will see an order number on the confirmation screen."),
+            "Open your Cart to review quantities, then choose Checkout, enter your name, email, and a card (or pick " +
+            "a saved card if you are logged in), and select Place Order. You will see an order number on the " +
+            "confirmation screen."),
 
         new("favorites", "How do favorites work?",
             "Select the heart on any book to save it to your Favorites. Open the Favorites link in the navigation " +

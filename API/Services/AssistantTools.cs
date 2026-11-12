@@ -315,7 +315,7 @@ public sealed class AssistantTools
         orderNumber = order.Id,
         placed = order.Date.ToString("MMMM d, yyyy"),
         // The prototype never ships anything; the status is derived from age so the demo feels real.
-        status = DescribeOrderStatus(order.Date),
+        status = DescribeOrderStatus(order),
         customerName = order.CustomerName,
         items = order.Items.Select(item => new { item.Title, item.Quantity, item.Price }),
         subtotal = order.Subtotal ?? order.Total,
@@ -323,9 +323,14 @@ public sealed class AssistantTools
         total = order.Total
     };
 
-    public static string DescribeOrderStatus(DateTimeOffset placed)
+    public static string DescribeOrderStatus(Order order)
     {
-        var age = DateTimeOffset.UtcNow - placed;
+        if (order.Refund is { } refund)
+        {
+            var done = refund.Type == OrderRefundPolicy.Return ? "Returned" : "Cancelled";
+            return $"{done} on {refund.Date:MMMM d, yyyy}; {refund.Total:C} refunded";
+        }
+        var age = DateTimeOffset.UtcNow - order.Date;
         if (age < TimeSpan.FromHours(4)) return "Processing";
         if (age < TimeSpan.FromDays(1)) return "Shipped (demo tracking: on its way)";
         if (age < TimeSpan.FromDays(5)) return "In transit, arriving in 3-5 business days from the ship date";

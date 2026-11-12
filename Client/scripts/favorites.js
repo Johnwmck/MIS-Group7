@@ -1,4 +1,5 @@
 // Customer favorites list: saved books with add-to-cart and remove actions.
+// Favorites belong to the logged-in customer's account; guests are sent to log in.
 
 // --- Page state and DOM references ---
 
@@ -81,9 +82,17 @@ function createFavoriteRow(book) {
     removeButton.textContent = 'Remove';
     removeButton.setAttribute('aria-label', 'Remove ' + book.title);
 
-    removeButton.addEventListener('click', function () {
+    removeButton.addEventListener('click', async function () {
         if (favoritesBusy) return;
-        removeFavoriteBook(book.id);
+        setFavoritesBusy(true);
+        try {
+            await removeFavoriteBook(book.id);
+        } catch (error) {
+            showFavoritesMessage('Unable to remove ' + book.title + '. ' + error.message);
+            return;
+        } finally {
+            setFavoritesBusy(false);
+        }
         renderFavorites();
     });
 
@@ -98,6 +107,14 @@ async function renderFavorites() {
     setFavoritesBusy(true);
     showFavoritesMessage('Loading favorites...');
     try {
+        // Favorites belong to customer accounts; everyone else logs in first.
+        await favoritesReady;
+        if (favoritesLoadError) throw favoritesLoadError;
+        if (!favoritesAvailable) {
+            window.location.replace('login.html');
+            return;
+        }
+
         const books = await loadBooksFromApi();
         const favoriteIds = reconcileFavorites(books);
 
@@ -153,9 +170,10 @@ async function addFavoriteToCart(book) {
     }
 }
 
+// favorites-state.js reloads the list on back/forward; render after it.
 window.addEventListener('pageshow', function (event) {
     if (event.persisted) {
-        renderFavorites();
+        favoritesReady.then(renderFavorites);
     }
 });
 

@@ -54,7 +54,8 @@ function renderBookDetails(book) {
     document.getElementById('authorBioToggle').textContent = 'About ' + book.author.split(',')[0].trim();
     document.getElementById('authorBioSection').classList.toggle('d-none', !book.authorBio);
 
-    document.getElementById('bookPrice').innerHTML = formatBookPriceHtml(book);
+    document.getElementById('bookPrice').innerHTML =
+        formatBookPriceHtml(book) + formatSaleBadgeHtml(book);
     const availability = document.getElementById('bookAvailability');
     availability.textContent = getCustomerAvailability(book);
     availability.classList.toggle('text-danger', isBookOutOfStock(book));

@@ -7,7 +7,8 @@
 function getBestSellingItems(orders, limit) {
     const salesByBook = {};
 
-    orders.forEach(function (order) {
+    // Returned and cancelled orders are not sales.
+    orders.filter(function (order) { return !order.refund; }).forEach(function (order) {
         const orderItems = Array.isArray(order.items)
             ? order.items
             : [];
@@ -62,6 +63,20 @@ function formatOrderDate(dateValue) {
     return date.toLocaleString();
 }
 
+// --- Returns and cancellations ---
+// A customer can return or cancel a whole order from their account; the order
+// then carries a refund receipt (order.refund).
+
+function getOrderStatusLabel(order) {
+    if (!order.refund) return 'Completed';
+    return order.refund.type === 'Return' ? 'Returned' : 'Cancelled';
+}
+
+// Refund receipts are numbered after their order: order 12 has receipt R-12.
+function getRefundReceiptNumber(order) {
+    return 'R-' + order.id;
+}
+
 function createOrderItemRow(item) {
     const quantity = Number.isInteger(item.quantity) ? item.quantity : 1;
     const unitPrice = typeof item.price === 'number' ? item.price : 0;
@@ -99,11 +114,21 @@ function createOrderCard(order) {
     const orderId = document.createElement('strong');
     orderId.textContent = 'Order #' + (order.id || 'Unknown');
 
+    const orderTitle = document.createElement('span');
+    orderTitle.append(orderId);
+
+    if (order.refund) {
+        const status = document.createElement('span');
+        status.className = 'badge text-bg-secondary ms-2';
+        status.textContent = getOrderStatusLabel(order);
+        orderTitle.append(status);
+    }
+
     const orderDate = document.createElement('span');
     orderDate.className = 'text-muted';
     orderDate.textContent = formatOrderDate(order.date);
 
-    cardHeader.append(orderId, orderDate);
+    cardHeader.append(orderTitle, orderDate);
 
     const cardBody = document.createElement('div');
     cardBody.className = 'card-body';
@@ -114,7 +139,8 @@ function createOrderCard(order) {
     const customerName = order.customerName || 'Guest customer';
     const customerEmail = order.customerEmail || 'Email not recorded';
 
-    customer.textContent = customerName + ' - ' + customerEmail;
+    customer.textContent = customerName + ' - ' + customerEmail +
+        (order.paymentMethod ? ' - Paid with ' + order.paymentMethod : '');
     cardBody.appendChild(customer);
 
     const items = Array.isArray(order.items) ? order.items : [];
@@ -135,6 +161,19 @@ function createOrderCard(order) {
     orderTotal.textContent = formatPurchaseTotals(getOrderTotals(order));
 
     cardBody.appendChild(orderTotal);
+
+    if (order.refund) {
+        const refund = order.refund;
+        const refundNote = document.createElement('div');
+        refundNote.className = 'refund-note mt-3';
+        refundNote.textContent = getOrderStatusLabel(order) + ' on ' + formatOrderDate(refund.date) +
+            ' · Receipt ' + getRefundReceiptNumber(order) +
+            ' · Refunded ' + currencyFormatter.format(refund.total) +
+            ' · Reason: ' + refund.reason +
+            (refund.comments ? ' (' + refund.comments + ')' : '');
+        cardBody.appendChild(refundNote);
+    }
+
     card.append(cardHeader, cardBody);
 
     return card;
@@ -170,14 +209,37 @@ function getMatchingOrders(orders, query) {
                 .includes(normalizedQuery);
         });
 
+        // "returned", "cancelled", or a receipt number such as R-12.
+        const refundMatches = Boolean(order.refund) && (
+            getOrderStatusLabel(order).toLowerCase().includes(normalizedQuery) ||
+            getRefundReceiptNumber(order).toLowerCase().includes(normalizedQuery));
+
         return orderIdMatches ||
             customerNameMatches ||
             customerEmailMatches ||
-            bookTitleMatches;
+            bookTitleMatches ||
+            refundMatches;
     });
 }
 
-function renderOrderHistory(orders, hasOrders, { orderHistoryList, orderHistoryEmpty, orderExportButton }) {
+// --- Order status filter (Admin's All / Returns / Orders) ---
+
+// 'returns' keeps returned and cancelled orders; 'orders' keeps the rest.
+function filterOrdersByStatus(orders, filter) {
+    if (filter === 'returns') return orders.filter(function (order) { return order.refund; });
+    if (filter === 'orders') return orders.filter(function (order) { return !order.refund; });
+    return orders;
+}
+
+function getStatusFilterEmptyMessage(filter) {
+    if (filter === 'returns') return 'No orders have been returned or cancelled.';
+    if (filter === 'orders') return 'Every order has been returned or cancelled.';
+    return '';
+}
+
+// emptyMessage (optional) replaces "No orders match your search." when the
+// list is empty for another reason, such as the status filter.
+function renderOrderHistory(orders, hasOrders, { orderHistoryList, orderHistoryEmpty, orderExportButton, emptyMessage }) {
     orderHistoryList.innerHTML = '';
 
     orders.forEach(function (order) {
@@ -187,7 +249,7 @@ function renderOrderHistory(orders, hasOrders, { orderHistoryList, orderHistoryE
     if (orders.length === 0) {
         orderHistoryEmpty.textContent = !hasOrders
             ? 'No completed orders are available.'
-            : 'No orders match your search.';
+            : emptyMessage || 'No orders match your search.';
     }
 
     orderHistoryEmpty.classList.toggle('d-none', orders.length > 0);
@@ -279,10 +341,16 @@ async function renderStats(books, { statsSummaryRow, lowStockList, bestSellersLi
     } catch (error) {
         reportError = true;
     }
+    // Returned and cancelled orders were refunded in full, so they leave the
+    // sales totals and count as refunds instead.
+    const keptOrders = orders.filter(function (order) { return !order.refund; });
     const ordersPlaced = orders.length;
-    const revenue = orders.reduce(function (sum, order) { return sum + getOrderTotals(order).subtotal; }, 0);
-    const taxCollected = orders.reduce(function (sum, order) { return sum + getOrderTotals(order).tax; }, 0);
-    const charged = orders.reduce(function (sum, order) { return sum + getOrderTotals(order).total; }, 0);
+    const revenue = keptOrders.reduce(function (sum, order) { return sum + getOrderTotals(order).subtotal; }, 0);
+    const taxCollected = keptOrders.reduce(function (sum, order) { return sum + getOrderTotals(order).tax; }, 0);
+    const charged = keptOrders.reduce(function (sum, order) { return sum + getOrderTotals(order).total; }, 0);
+    const refunded = orders.reduce(function (sum, order) {
+        return sum + (order.refund ? order.refund.total : 0);
+    }, 0);
 
     const bestSellers = getBestSellingItems(orders, 5);
 
@@ -291,9 +359,10 @@ async function renderStats(books, { statsSummaryRow, lowStockList, bestSellersLi
         statCard('Low Stock Items', lowStockBooks.length) +
         statCard('Out of Stock Items', outOfStockBooks.length) +
         statCard('Orders Placed', reportError ? 'Unavailable' : ordersPlaced) +
-        statCard('Revenue (before tax)', reportError ? 'Unavailable' : currencyFormatter.format(revenue)) +
-        statCard('Sales Tax Collected', reportError ? 'Unavailable' : currencyFormatter.format(taxCollected)) +
-        statCard('Total Charged (including tax)', reportError ? 'Unavailable' : currencyFormatter.format(charged));
+        statCard('Revenue (before tax, after refunds)', reportError ? 'Unavailable' : currencyFormatter.format(revenue)) +
+        statCard('Sales Tax Collected (after refunds)', reportError ? 'Unavailable' : currencyFormatter.format(taxCollected)) +
+        statCard('Total Charged (including tax, after refunds)', reportError ? 'Unavailable' : currencyFormatter.format(charged)) +
+        statCard('Refunds Issued', reportError ? 'Unavailable' : currencyFormatter.format(refunded));
 
     lowStockList.innerHTML = lowStockBooks.length
         ? lowStockBooks.map(function (book) {

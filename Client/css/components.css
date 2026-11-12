@@ -180,6 +180,20 @@
     position: relative;
 }
 
+/* Favorites is for logged-in customers only (favorites-state.js). While its
+   link is hidden, Cart takes over its push to the right edge, except beside the
+   centered search box on wide screens. */
+.navbar-favorites-link.d-none + .cart-menu,
+.navbar-favorites-link.d-none + .nav-link {
+    margin-left: auto !important;
+}
+
+@media (min-width: 992px) {
+    .navbar-search-form ~ .navbar-favorites-link.d-none + .cart-menu {
+        margin-left: 1rem !important;
+    }
+}
+
 .cart-preview {
     display: none;
     position: absolute;

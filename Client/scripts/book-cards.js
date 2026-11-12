@@ -31,9 +31,7 @@ function createBookCard(book) {
             <div class="card-body">
                 <h3 class="card-title h6">${book.title}</h3>
                 <p class="card-text book-author">${book.author}</p>
-                <p class="card-text book-price fw-bold">${formatBookPriceHtml(book)}${isBookOnSale(book)
-            ? ' <span class="badge promo-badge ms-1">10% off</span>'
-            : ''}</p>
+                <p class="card-text book-price fw-bold">${formatBookPriceHtml(book)}${formatSaleBadgeHtml(book)}</p>
             </div>
         </div>
     `;

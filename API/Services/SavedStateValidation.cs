@@ -64,11 +64,70 @@ public static class SavedStateValidation
             {
                 throw new InvalidDataException($"Saved order {order.Id} overflows monetary calculations. It was not reset.", error);
             }
+
+            // Account link, saved-card snapshot, and refund receipt are optional.
+            // A refund must repay exactly what the order charged.
+            Require(order.CustomerId is null or > 0 &&
+                (order.PaymentMethod is null ||
+                    (!string.IsNullOrWhiteSpace(order.PaymentMethod) && order.PaymentMethod.Length <= 100)),
+                $"invalid account or payment details in order {order.Id}.");
+            if (order.Refund is { } refund)
+            {
+                Require(OrderRefundPolicy.GetError(refund.Type, refund.Reason, refund.Comments) == "" &&
+                    refund.Comments == OrderRefundPolicy.NormalizeComments(refund.Comments) &&
+                    refund.Date.Offset == TimeSpan.Zero && refund.Date >= order.Date &&
+                    refund.Subtotal == (order.Subtotal ?? order.Total) &&
+                    refund.Tax == (order.Tax ?? 0) && refund.Total == order.Total,
+                    $"invalid refund receipt in order {order.Id}.");
+            }
         }
         // --- Safe next-ID counters ---
         // Deleted books need not exist in the catalog, but IDs referenced by
         // historical orders must never be reassigned to another book.
         Require(state.NextBookId > highestReferencedBookId &&
             state.NextOrderId > orderIds.DefaultIfEmpty(0).Max(), "ID counters would reuse existing IDs.");
+
+        // --- Customer accounts ---
+        // Emails are saved normalized, so one email can hold only one account.
+        Require(state.Customers is not null, "missing customer accounts.");
+        var customerIds = new HashSet<int>();
+        var customerEmails = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var customer in state.Customers!)
+        {
+            Require(customer is not null && customer.Id > 0 && customerIds.Add(customer.Id),
+                "invalid or duplicate customer ID.");
+            Require(CustomerValidation.GetProfileError(customer!.FirstName, customer.LastName,
+                    customer.Email, customer.Phone) == "" &&
+                customer.Email == CustomerValidation.NormalizeEmail(customer.Email) &&
+                customerEmails.Add(customer.Email) &&
+                !string.IsNullOrWhiteSpace(customer.PasswordHash) &&
+                customer.CreatedAt != default && customer.CreatedAt.Offset == TimeSpan.Zero,
+                $"invalid or duplicate details in customer account {customer.Id}.");
+
+            // Saved cards: valid details, unique IDs, one default, and a card ID
+            // counter that cannot reuse an ID.
+            Require(customer.PaymentMethods is not null &&
+                customer.PaymentMethods.Count <= PaymentMethodValidation.MaxSavedCards,
+                $"invalid saved cards in customer account {customer.Id}.");
+            var cardIds = new HashSet<int>();
+            foreach (var card in customer.PaymentMethods!)
+                Require(card is not null && card.Id > 0 && cardIds.Add(card.Id) &&
+                    PaymentMethodValidation.GetCardError(card.Brand, card.Last4, card.ExpMonth, card.ExpYear,
+                        card.NameOnCard) == "" &&
+                    card.NameOnCard == card.NameOnCard.Trim(),
+                    $"invalid or duplicate saved card in customer account {customer.Id}.");
+            Require((customer.PaymentMethods.Count == 0 || customer.PaymentMethods.Count(card => card.IsDefault) == 1) &&
+                customer.NextPaymentMethodId > cardIds.DefaultIfEmpty(0).Max(),
+                $"invalid default card or card ID counter in customer account {customer.Id}.");
+
+            // Favorites may name books deleted since; responses leave those out.
+            Require(customer.FavoriteBookIds is not null &&
+                customer.FavoriteBookIds.Count <= CustomerValidation.MaxFavorites &&
+                customer.FavoriteBookIds.All(bookId => bookId > 0) &&
+                customer.FavoriteBookIds.Distinct().Count() == customer.FavoriteBookIds.Count,
+                $"invalid favorites in customer account {customer.Id}.");
+        }
+        Require(state.NextCustomerId > customerIds.DefaultIfEmpty(0).Max(),
+            "customer ID counter would reuse an existing ID.");
     }
 }
