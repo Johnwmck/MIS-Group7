@@ -341,8 +341,7 @@ public sealed class AssistantTools
     // outrank genre, series, and description hits.
     public List<Book> SearchBooks(string? query, string? genre, decimal? maxPrice, int limit)
     {
-        var words = Tokenize(query);
-        var genreFilter = (genre ?? "").Trim();
+        var genreFilter = NormalizeGenre((genre ?? "").Trim());
 
         List<Book> candidates;
         lock (store.SyncRoot)
@@ -350,12 +349,42 @@ public sealed class AssistantTools
             candidates = store.Books.Where(IsPurchasable).Select(Copy).ToList();
         }
 
+        // Resolve the requested genre against the catalog's real genres. An exact name wins
+        // ("Science Fiction" must not also pull in "Fiction"); a partial name like "Fiction"
+        // keeps every genre containing it; a genre we don't have ("Dystopian") becomes search words.
+        var catalogGenres = candidates.Select(book => book.Genre).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var allowedGenres = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (genreFilter != "")
+        {
+            var exact = catalogGenres.FirstOrDefault(name => name.Equals(genreFilter, StringComparison.OrdinalIgnoreCase));
+            if (exact is not null) allowedGenres.Add(exact);
+            else allowedGenres.UnionWith(catalogGenres.Where(name => name.Contains(genreFilter, StringComparison.OrdinalIgnoreCase)));
+            if (allowedGenres.Count == 0)
+            {
+                query = $"{query} {genreFilter.Replace('-', ' ')}".Trim();
+                genreFilter = "";
+            }
+        }
+
+        // "best sci-fi books" should browse Science Fiction, not keyword-match "sci" and "fi"
+        // against every description. Pull a genre named in the query out into the filter.
+        if (genreFilter == "" && !string.IsNullOrWhiteSpace(query))
+        {
+            var detected = DetectGenre(query, candidates.Select(book => book.Genre).Distinct());
+            if (detected is not null)
+            {
+                genreFilter = detected.Value.Genre;
+                allowedGenres.Add(detected.Value.Genre);
+                query = query.Remove(detected.Value.Index, detected.Value.Length);
+            }
+        }
+        var words = Tokenize(query);
+
         var scored = new List<(Book book, int score)>();
         foreach (var book in candidates)
         {
             if (maxPrice is not null && EffectivePrice(book) > maxPrice.Value) continue;
-            if (genreFilter != "" && !book.Genre.Contains(genreFilter, StringComparison.OrdinalIgnoreCase) &&
-                !genreFilter.Contains(book.Genre, StringComparison.OrdinalIgnoreCase)) continue;
+            if (allowedGenres.Count > 0 && !allowedGenres.Contains(book.Genre)) continue;
 
             var score = 0;
             if (words.Count == 0)
@@ -392,8 +421,38 @@ public sealed class AssistantTools
         "a", "an", "the", "and", "or", "of", "for", "to", "in", "on", "by", "with", "about", "book", "books",
         "novel", "novels", "some", "any", "good", "great", "best", "me", "i", "want", "like", "find", "search",
         "recommend", "recommendation", "recommendations", "suggest", "looking", "please", "can", "you", "do",
-        "have", "is", "are", "there", "my", "your", "under", "less", "than", "cheap", "something", "new", "read"
+        "have", "is", "are", "there", "my", "your", "under", "less", "than", "cheap", "something", "new", "read",
+        "all", "top", "popular", "similar", "what", "else", "would", "next", "enjoy", "everyone", "should", "must"
     };
+
+    // Everyday names for catalog genres; the catalog's own genre names are matched too.
+    private static readonly Dictionary<string, string> GenreAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["sci-fi"] = "Science Fiction", ["scifi"] = "Science Fiction", ["sci fi"] = "Science Fiction",
+        ["ya"] = "Young Adult", ["teen"] = "Young Adult",
+        ["kids"] = "Children's", ["children"] = "Children's", ["childrens"] = "Children's",
+        ["biography"] = "Memoir & Biography", ["memoir"] = "Memoir & Biography", ["biographies"] = "Memoir & Biography",
+        ["classic"] = "Classics", ["mysteries"] = "Mystery", ["thrillers"] = "Thriller",
+        ["self-help"] = "Psychology & Self-Help", ["self help"] = "Psychology & Self-Help",
+        ["funny"] = "Humor", ["scary"] = "Horror"
+    };
+
+    private static string NormalizeGenre(string genre) =>
+        GenreAliases.TryGetValue(genre, out var mapped) ? mapped : genre;
+
+    // Finds a genre (or alias) written as whole words in the query; longest match wins.
+    private static (string Genre, int Index, int Length)? DetectGenre(string query, IEnumerable<string> genres)
+    {
+        var names = genres.Select(genre => (Phrase: genre, Genre: genre))
+            .Concat(GenreAliases.Select(alias => (Phrase: alias.Key, Genre: alias.Value)))
+            .OrderByDescending(entry => entry.Phrase.Length);
+        foreach (var (phrase, genre) in names)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(query, @"(?<![\w-])" + System.Text.RegularExpressions.Regex.Escape(phrase) + @"(?![\w-])", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success) return (genre, match.Index, match.Length);
+        }
+        return null;
+    }
 
     public static List<string> Tokenize(string? text) =>
         (text ?? "")

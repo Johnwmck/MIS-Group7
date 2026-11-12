@@ -56,6 +56,8 @@ public sealed class AssistantService
 
         var reply = new AssistantReply { Mode = "ollama" };
         var seenBooks = new HashSet<int>();
+        var nudgedToAct = false;
+        var nudgedToSearch = false;
 
         for (var round = 0; round <= MaxToolRounds; round++)
         {
@@ -66,6 +68,32 @@ public sealed class AssistantService
 
             if (message.ToolCalls is null || message.ToolCalls.Count == 0)
             {
+                // Small models often say "I've added it" without calling add_to_cart, which
+                // leaves the cart unchanged. Give the model one chance to make the real call.
+                if (!nudgedToAct && round < MaxToolRounds
+                    && !reply.Actions.Any(action => action.Type == "addToCart")
+                    && ClaimsCartAdd(message.Content))
+                {
+                    nudgedToAct = true;
+                    messages.Add(new OllamaMessage
+                    {
+                        Role = "system",
+                        Content = "You said a book was added to the cart, but you did not call add_to_cart, so nothing was added. Call add_to_cart now with the book id (from the [Books shown] note) or exact title, then confirm."
+                    });
+                    continue;
+                }
+                // Likewise "Let me look up some titles" with no search_books call: without the
+                // search, the next answer comes from the model's memory and names books we don't sell.
+                if (!nudgedToSearch && round < MaxToolRounds && reply.Books.Count == 0 && AnnouncesSearch(message.Content))
+                {
+                    nudgedToSearch = true;
+                    messages.Add(new OllamaMessage
+                    {
+                        Role = "system",
+                        Content = "You said you would search, but you did not call search_books. Call search_books now (use a genre or keywords), then recommend only the books it returns."
+                    });
+                    continue;
+                }
                 reply.Reply = CleanReply(message.Content);
                 break;
             }
@@ -87,6 +115,12 @@ public sealed class AssistantService
             }
         }
 
+        // Still claiming an add that never happened, even after the nudge: be honest instead.
+        if (!reply.Actions.Any(action => action.Type == "addToCart") && ClaimsCartAdd(reply.Reply))
+        {
+            reply.Reply = "Sorry, I couldn't add that to your cart. Tell me the exact title and I'll try again, or use the Add to Cart button on the book.";
+        }
+
         if (string.IsNullOrWhiteSpace(reply.Reply))
         {
             // The model acted but said nothing; describe the outcome ourselves.
@@ -101,11 +135,48 @@ public sealed class AssistantService
         return reply;
     }
 
+    // True when a statement (not a question) says something was added to the cart.
+    private static bool ClaimsCartAdd(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return false;
+        var sentences = System.Text.RegularExpressions.Regex.Split(content, @"(?<=[.!?])\s+");
+        return sentences.Any(sentence =>
+            !sentence.TrimEnd().EndsWith('?')
+            && System.Text.RegularExpressions.Regex.IsMatch(sentence, @"\b(added|adding)\b[^.?!]*\bcart\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+    }
+
+    // True when the reply promises a catalog search ("I'll look up some titles") instead of doing one.
+    private static bool AnnouncesSearch(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return false;
+        var sentences = System.Text.RegularExpressions.Regex.Split(content, @"(?<=[.!?])\s+");
+        return sentences.Any(sentence =>
+            !sentence.TrimEnd().EndsWith('?')
+            && System.Text.RegularExpressions.Regex.IsMatch(sentence, @"\b(let me|let's|let us|i'll|i will|i'm going to)\b[^.?!]*\b(search|look up|look for|find|check)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+    }
+
     // Models sometimes write markdown links or URLs despite instructions; the
     // navigate action already renders a real button, so keep only the words.
     private static string CleanReply(string content)
     {
-        var text = System.Text.RegularExpressions.Regex.Replace(content, @"\[([^\]]+)\]\([^)]*\)", "$1");
+        // The model sometimes writes the "[Books shown: #id Title; ...]" history note meant only
+        // for it, often as its whole book list. Drop it if the titles are already in the reply,
+        // otherwise turn it into a plain list of titles.
+        var notePattern = @"\[Books shown:([^\]]*)\]";
+        var outsideNote = System.Text.RegularExpressions.Regex.Replace(content, notePattern, "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var text = System.Text.RegularExpressions.Regex.Replace(content, @"(^[ \t]*[-*•][ \t]*)?" + notePattern, match =>
+        {
+            var titles = match.Groups[2].Value.Split(';')
+                .Select(entry => System.Text.RegularExpressions.Regex.Replace(entry, @"^\s*#?\d+\s*", "").Trim())
+                .Where(title => title.Length > 0)
+                .ToList();
+            if (titles.Count == 0 || titles.Any(title => outsideNote.Contains(title, StringComparison.OrdinalIgnoreCase)))
+                return "";
+            return "\n- " + string.Join("\n- ", titles) + "\n";
+        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"^\s*[-*•]\s*$\n?", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\[([^\]]+)\]\([^)]*\)", "$1");
         text = System.Text.RegularExpressions.Regex.Replace(text, @"^#{1,6}\s*", "", System.Text.RegularExpressions.RegexOptions.Multiline);
         // A line that is only "[Go to Cart]" is the model drawing its own button.
         text = System.Text.RegularExpressions.Regex.Replace(text, @"^\s*\[[^\]\n]+\]\s*$\n?", "", System.Text.RegularExpressions.RegexOptions.Multiline);
