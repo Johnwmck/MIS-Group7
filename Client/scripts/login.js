@@ -1,4 +1,6 @@
-// Internal login form and role-based routing.
+// Login page for everyone. Customers log in with their email through the API;
+// staff log in with a username against the browser prototype accounts. Anyone
+// already logged in goes straight to their portal or to account.html.
 
 // --- Page DOM references ---
 
@@ -6,6 +8,12 @@ const loginForm = document.getElementById('loginForm');
 const usernameInput = document.getElementById('usernameInput');
 const passwordInput = document.getElementById('passwordInput');
 const loginError = document.getElementById('loginError');
+const loginButton = document.getElementById('loginButton');
+
+function showLoginError(message) {
+    loginError.textContent = message;
+    loginError.classList.toggle('d-none', message === '');
+}
 
 // --- Existing-session routing ---
 
@@ -15,24 +23,47 @@ if (existingSession) {
     window.location.replace(
         getInternalHomePage(existingSession.role)
     );
+} else {
+    redirectLoggedInCustomer();
+}
+
+async function redirectLoggedInCustomer() {
+    try {
+        if (await loadCurrentCustomerFromApi()) {
+            window.location.replace('account.html');
+        }
+    } catch (error) {
+        // Leave the login form showing if the API cannot be reached.
+    }
 }
 
 // --- Login submission ---
 
-loginForm.addEventListener('submit', function (event) {
+loginForm.addEventListener('submit', async function (event) {
     event.preventDefault();
+    showLoginError('');
 
-    loginError.classList.add('d-none');
-    loginError.textContent = '';
+    const identifier = usernameInput.value.trim();
 
-    const result = authenticateInternalUser(
-        usernameInput.value,
-        passwordInput.value
-    );
+    // Customer accounts use email addresses; staff usernames cannot contain "@".
+    if (identifier.includes('@')) {
+        loginButton.disabled = true;
+
+        try {
+            await logInCustomerInApi(identifier, passwordInput.value);
+            window.location.replace('index.html');
+        } catch (error) {
+            showLoginError(error.message);
+            loginButton.disabled = false;
+        }
+
+        return;
+    }
+
+    const result = authenticateInternalUser(identifier, passwordInput.value);
 
     if (result.error) {
-        loginError.textContent = result.error;
-        loginError.classList.remove('d-none');
+        showLoginError(result.error);
         return;
     }
 

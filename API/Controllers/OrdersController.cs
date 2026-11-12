@@ -54,6 +54,16 @@ public class OrdersController : ControllerBase
         {
             return BadRequest(new { error = "The selection contains a duplicate book." });
         }
+        // Every order is paid with exactly one card: a saved card or one typed at checkout.
+        if ((request.PaymentMethodId is null) == (request.NewCard is null))
+        {
+            return BadRequest(new { error = "Choose a saved card or enter a card to pay." });
+        }
+        if (request.NewCard is not null)
+        {
+            var cardError = PaymentMethodValidation.GetNewCardError(request.NewCard, DateTimeOffset.UtcNow);
+            if (cardError != "") return BadRequest(new { error = cardError });
+        }
 
         // Catalog reads, validation, inventory changes, and order insertion share
         // one lock with catalog CRUD. No partial purchase can become visible.
@@ -94,6 +104,35 @@ public class OrdersController : ControllerBase
                 });
             }
 
+            // Orders placed while logged in belong to that account. A saved card
+            // must belong to the same account; only a logged-in customer can
+            // save the card typed at checkout.
+            var customer = CustomerSession.Find(User, store.Customers);
+            if (request.SaveNewCard && customer is null)
+                return BadRequest(new { error = "Log in to save a card to your account." });
+
+            string paymentMethod;
+            var saveCard = false;
+            if (request.PaymentMethodId is not null)
+            {
+                var card = customer?.PaymentMethods.Find(card => card.Id == request.PaymentMethodId);
+                if (card is null)
+                    return Conflict(new { error = "That saved card is no longer available. Choose another payment method." });
+                if (PaymentMethodValidation.IsExpired(card, DateTimeOffset.UtcNow))
+                    return Conflict(new { error = $"Your {PaymentMethodValidation.Describe(card)} has expired. Choose another payment method." });
+                paymentMethod = PaymentMethodValidation.Describe(card);
+            }
+            else
+            {
+                var newCard = request.NewCard!;
+                paymentMethod = PaymentMethodValidation.Describe(newCard.Brand!, newCard.Last4!);
+                // A card that is already saved is simply used, not saved twice.
+                saveCard = request.SaveNewCard && PaymentMethodValidation.FindSame(customer!, newCard) is null;
+                var saveError = saveCard ? PaymentMethodValidation.GetSaveError(customer!) : "";
+                if (saveError != "")
+                    return BadRequest(new { error = saveError + " Or uncheck \"Save this card\" to pay without saving it." });
+            }
+
             if (store.NextOrderId == int.MaxValue)
                 return BadRequest(new { error = "No further order IDs are available." });
 
@@ -122,7 +161,9 @@ public class OrdersController : ControllerBase
                 Subtotal = subtotal,
                 TaxRate = SalesTaxRate,
                 Tax = tax,
-                Total = grandTotal
+                Total = grandTotal,
+                CustomerId = customer?.Id,
+                PaymentMethod = paymentMethod
             };
             // Save order and inventory together; new revisions invalidate
             // Admin/Employee views opened before this purchase.
@@ -135,6 +176,12 @@ public class OrdersController : ControllerBase
                 purchasedBook.Revision = Guid.NewGuid();
             }
             candidate.NextOrderId++;
+            // The typed card is saved in the same commit, so it is saved only if the order is.
+            if (saveCard)
+            {
+                var account = candidate.Customers.Find(saved => saved.Id == customer!.Id)!;
+                PaymentMethodValidation.AddCard(account, request.NewCard!);
+            }
             store.Commit(candidate);
             return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
         }

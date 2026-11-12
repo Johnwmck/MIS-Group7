@@ -29,7 +29,7 @@
                 <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="catalog.html">Catalog</a></li>
                 <li class="nav-item"><a class="nav-link" href="help.html">Help</a></li>
-                <li class="nav-item"><a class="nav-link" href="login.html">Internal Login</a></li>
+                <li class="nav-item"><a class="nav-link" href="login.html">Login</a></li>
             </ul></div>
         </div>
     </nav>
@@ -70,8 +70,66 @@
                                     required>
                             </div>
 
-                            <p class="text-muted small">
-                                This prototype does not collect payment information.
+                            <!-- Payment is required. checkout.js shows a logged-in customer's
+                                 saved cards and shows the card fields whenever a new card is used. -->
+                            <fieldset class="mb-3" aria-describedby="paymentHelp">
+                                <legend class="form-label fs-6 mb-2">Payment</legend>
+
+                                <div class="mb-3 d-none" id="paymentMethodGroup">
+                                    <label class="visually-hidden" for="paymentMethodSelect">Card</label>
+                                    <select class="form-select" id="paymentMethodSelect"></select>
+                                </div>
+
+                                <div id="newCardFields">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="cardNameInput">Name on card</label>
+                                        <input type="text" class="form-control" id="cardNameInput"
+                                            autocomplete="cc-name" maxlength="60">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label" for="cardNumberInput">Card number</label>
+                                        <input type="text" class="form-control" id="cardNumberInput"
+                                            autocomplete="cc-number" inputmode="numeric" maxlength="23"
+                                            aria-describedby="cardBrandHint">
+                                        <div class="form-text" id="cardBrandHint">
+                                            Visa, Mastercard, American Express, or Discover.
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <label class="form-label" for="cardMonthSelect">Expiration month</label>
+                                            <select class="form-select" id="cardMonthSelect" autocomplete="cc-exp-month">
+                                                <option value="">Month</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label" for="cardYearSelect">Expiration year</label>
+                                            <select class="form-select" id="cardYearSelect" autocomplete="cc-exp-year">
+                                                <option value="">Year</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-check mb-3 d-none" id="saveCardGroup">
+                                        <input class="form-check-input" type="checkbox" id="saveCardInput" checked>
+                                        <label class="form-check-label" for="saveCardInput">
+                                            Save this card to my account
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="form-text" id="paymentHelp">
+                                    Demo store: nothing is charged. Only the card type, last four digits, and
+                                    expiration date are kept, never the full card number.
+                                    <a class="d-none" id="manageCardsLink" href="account.html#payments">Manage saved cards</a>
+                                </div>
+                            </fieldset>
+
+                            <p class="text-muted small" id="guestPaymentNote">
+                                <a href="login.html">Log in</a> to keep this order in your account's order
+                                history and save cards for next time.
                             </p>
 
                             <button type="submit" class="btn btn-primary" id="placeOrderButton" disabled>
@@ -127,8 +185,12 @@
                     <div><span id="confirmationTaxLabel">Sales tax (10%)</span>: <span id="confirmationTax"></span></div>
                     <div class="fw-bold">Total: <span id="confirmationTotal"></span></div>
                 </div>
+                <p class="d-none" id="confirmationPayment"></p>
 
                 <a class="btn btn-primary" href="index.html">Continue Shopping</a>
+                <a class="btn btn-outline-primary d-none" id="confirmationHistoryLink" href="account.html#orders">
+                    View Order History
+                </a>
             </div>
         </section>
     </main>
@@ -136,6 +198,8 @@
     <footer id="siteFooter" class="site-footer mt-auto"></footer>
 
     <script src="scripts/internal-users.js"></script>
+    <script src="scripts/customer-accounts.js?v=account-2"></script>
+    <script src="scripts/payment-cards.js"></script>
     <script src="scripts/auth.js?v=account-nav-1"></script>
     <script src="scripts/book-utils.js?v=tax-breakdown-1"></script>
     <script src="scripts/api.js"></script>

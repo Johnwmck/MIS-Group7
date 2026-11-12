@@ -1,5 +1,5 @@
 // Shared customer-page footer: brand, shop links, customer service details,
-// and staff login. Fills <footer id="siteFooter"> so every customer page
+// and account links (Login for customers and staff, Create an Account). Fills <footer id="siteFooter"> so every customer page
 // shows the same footer from one copy of the markup.
 
 function renderSiteFooter() {
@@ -27,7 +27,7 @@ function renderSiteFooter() {
                     <ul class="list-unstyled site-footer-links mb-0">
                         <li><a href="index.html">Home</a></li>
                         <li><a href="catalog.html">Catalog</a></li>
-                        <li><a href="favorites.html">Favorites</a></li>
+                        <li class="d-none" data-customer-only><a href="favorites.html">Favorites</a></li>
                         <li><a href="cart.html">Cart</a></li>
                     </ul>
                 </nav>
@@ -42,10 +42,11 @@ function renderSiteFooter() {
                     </ul>
                 </div>
 
-                <nav class="col-12 col-md-4 col-lg-2" aria-label="Staff">
-                    <h2 class="site-footer-heading">Staff</h2>
+                <nav class="col-12 col-md-4 col-lg-2" aria-label="Account">
+                    <h2 class="site-footer-heading">Account</h2>
                     <ul class="list-unstyled site-footer-links mb-0">
-                        <li><a href="login.html">Internal Login</a></li>
+                        <li><a href="login.html">Login</a></li>
+                        <li><a href="signup.html">Create an Account</a></li>
                     </ul>
                 </nav>
             </div>

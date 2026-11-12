@@ -17,6 +17,15 @@ checkout, and server-backed order history and reporting.
 }
 ```
 
+Payment is required: send exactly one of `"paymentMethodId"` (a saved card of
+the logged-in customer; it must belong to that account and not be expired,
+otherwise HTTP 409) or `"newCard"` (`brand`, `last4`, `expMonth`, `expYear`,
+`nameOnCard`; never the full number; validated like a card saved on the account
+page). Neither or both returns HTTP 400. A logged-in customer may add
+`"saveNewCard": true` to save the typed card to their account in the same commit
+as the order; guests get HTTP 400 for that. The server links the order to the
+logged-in account from the login cookie, never from the request body.
+
 `CreateOrderRequest` and `OrderItemRequest` describe this input. `price` is the
 unit price displayed during review, not permission to set the sale price. It is
 required, including for free books. No client total, title, order ID, or date is
@@ -65,6 +74,13 @@ Success returns HTTP 201 with the completed `Order` directly:
   "total": 32.98
 }
 ```
+
+Orders also carry `customerId` (the logged-in account, or `null` for guests),
+`paymentMethod` (text such as `"Visa ending in 4242"`, or `null`), and `refund`
+(`null` until the customer returns or cancels the order within 30 days through
+`POST /api/customers/me/orders/{id}/refund`; then `type`, `reason`, `comments`,
+UTC `date`, and refunded `subtotal`, `tax`, and `total`, which always equal what
+the order charged). A refund restocks the books and never deletes the sale.
 
 The server assigns increasing order IDs and UTC timestamps. Saved titles and
 prices remain unchanged after catalog edits or deletion. The camel-case fields

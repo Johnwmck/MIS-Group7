@@ -18,6 +18,8 @@ public sealed class BookstoreStore : IDisposable
     public List<Order> Orders => state.Orders;
     public int NextBookId => state.NextBookId;
     public int NextOrderId => state.NextOrderId;
+    public List<Customer> Customers => state.Customers;
+    public int NextCustomerId => state.NextCustomerId;
 
     // --- Startup loading and exclusive file ownership ---
     // Saved state wins over seeds. A bad saved file must never trigger a reset.

@@ -86,7 +86,7 @@ public sealed partial class FallbackAssistant
         var items = string.Join(", ", order.Items.Select(item => $"{item.Title} ×{item.Quantity}"));
         return Reply(
             $"Order #{order.Id} for {order.CustomerName}, placed {order.Date:MMMM d, yyyy}.\n" +
-            $"Status: {AssistantTools.DescribeOrderStatus(order.Date)}.\n" +
+            $"Status: {AssistantTools.DescribeOrderStatus(order)}.\n" +
             $"Items: {items}.\n" +
             $"Total: {order.Total:C}" + (order.Tax is not null ? $" (includes {order.Tax:C} sales tax)." : "."));
     }

@@ -1,4 +1,4 @@
-// Shared Employee/Admin order history, search, and CSV export.
+// Shared Employee/Admin order history, search, status filter, and CSV export.
 
 // --- Page state and DOM references ---
 
@@ -6,6 +6,8 @@ const orderHistoryList = document.getElementById('orderHistoryList');
 const orderHistoryEmpty = document.getElementById('orderHistoryEmpty');
 const orderSearchInput = document.getElementById('orderSearchInput');
 const orderExportButton = document.getElementById('orderExportButton');
+// All / Returns / Orders buttons; only the Admin page has them.
+const orderStatusFilterInputs = document.querySelectorAll('input[name="orderStatusFilter"]');
 
 let displayedOrders = [];
 
@@ -13,6 +15,26 @@ let displayedOrders = [];
 
 let orderHistory = [];
 let ordersLoading = false;
+
+function getOrderStatusFilter() {
+    const checked = document.querySelector('input[name="orderStatusFilter"]:checked');
+    return checked ? checked.value : 'all';
+}
+
+// Applies the search box and the status filter, then redraws the list. Export
+// uses the same displayed orders.
+function showFilteredOrders() {
+    const filter = getOrderStatusFilter();
+    const searching = orderSearchInput.value.trim() !== '';
+    displayedOrders = filterOrdersByStatus(getMatchingOrders(orderHistory, orderSearchInput.value), filter);
+
+    renderOrderHistory(displayedOrders, orderHistory.length > 0, {
+        orderHistoryList,
+        orderHistoryEmpty,
+        orderExportButton,
+        emptyMessage: searching ? '' : getStatusFilterEmptyMessage(filter)
+    });
+}
 
 // Clear prior results while loading; a failed request must not leave stale
 // orders exportable as if they were the latest server history.
@@ -29,9 +51,7 @@ async function refreshOrderHistory() {
         orderHistory = (await loadOrdersFromApi()).slice().sort(function (a, b) {
             return new Date(b.date).getTime() - new Date(a.date).getTime();
         });
-        displayedOrders = getMatchingOrders(orderHistory, orderSearchInput.value);
-        renderOrderHistory(displayedOrders, orderHistory.length > 0,
-            { orderHistoryList, orderHistoryEmpty, orderExportButton });
+        showFilteredOrders();
     } catch (error) {
         orderHistoryEmpty.textContent = 'Unable to load order history. Refresh to retry. ' + error.message;
     } finally {
@@ -43,14 +63,14 @@ async function refreshOrderHistory() {
 
 orderSearchInput.addEventListener('input', function () {
     if (ordersLoading || orderHistory.length === 0) return;
-    const matchingOrders = getMatchingOrders(
-        orderHistory,
-        orderSearchInput.value
-    );
+    showFilteredOrders();
+});
 
-    displayedOrders = matchingOrders;
-    renderOrderHistory(displayedOrders, orderHistory.length > 0,
-        { orderHistoryList, orderHistoryEmpty, orderExportButton });
+orderStatusFilterInputs.forEach(function (input) {
+    input.addEventListener('change', function () {
+        if (ordersLoading || orderHistory.length === 0) return;
+        showFilteredOrders();
+    });
 });
 
 orderExportButton.addEventListener('click', function () {

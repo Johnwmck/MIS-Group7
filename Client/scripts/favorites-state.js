@@ -1,61 +1,88 @@
-// Saved favorite books, the navbar favorites count, and the shared heart button.
-// Favorites stay in this browser, like cart selections.
+// Favorite books, the navbar Favorites link and count, and the shared heart
+// button. Favorites belong to a customer account and are saved by the API, so
+// only logged-in customers see the hearts and the Favorites link. Depends on
+// customer-accounts.js.
 
-const FAVORITES_STORAGE_KEY = 'savedFavorites';
+// Favorites saved in this browser before they moved to accounts.
+const LEGACY_FAVORITES_STORAGE_KEY = 'savedFavorites';
 
-// --- Saved favorites ---
+// --- Loaded favorites ---
 
-// Favorites store book IDs only; current book details come from the catalog.
-function loadFavoritesFromStorage() {
-    return JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY)) || [];
-}
+// Book IDs for the logged-in customer, in saved order.
+let favoriteBookIds = [];
+// True once a logged-in customer's favorites have loaded.
+let favoritesAvailable = false;
+// The load error, if the API could not be reached.
+let favoritesLoadError = null;
 
-function saveFavoritesToStorage(bookIds) {
-    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(bookIds));
-}
-
-function isFavoriteBook(bookId) {
-    return loadFavoritesFromStorage().includes(bookId);
-}
-
-function removeFavoriteBook(bookId) {
-    const remainingIds = loadFavoritesFromStorage().filter(function (id) {
-        return id !== bookId;
-    });
-
-    saveFavoritesToStorage(remainingIds);
-}
-
-function toggleFavoriteBook(bookId) {
-    if (isFavoriteBook(bookId)) {
-        removeFavoriteBook(bookId);
-        return;
+// Moves favorites saved in this browser into the customer's account, once.
+async function importLegacyFavorites() {
+    let legacyIds = [];
+    try {
+        legacyIds = JSON.parse(localStorage.getItem(LEGACY_FAVORITES_STORAGE_KEY)) || [];
+    } catch (error) {
+        legacyIds = [];
     }
 
-    const bookIds = loadFavoritesFromStorage();
-    bookIds.push(bookId);
-    saveFavoritesToStorage(bookIds);
+    for (const bookId of legacyIds) {
+        if (!Number.isInteger(bookId) || favoriteBookIds.includes(bookId)) continue;
+        try {
+            favoriteBookIds = await addFavoriteInApi(bookId);
+        } catch (error) {
+            // Deleted books cannot be favorited; skip them.
+        }
+    }
+    localStorage.removeItem(LEGACY_FAVORITES_STORAGE_KEY);
+}
+
+async function loadFavorites() {
+    favoritesLoadError = null;
+    try {
+        const customer = await loadCurrentCustomerFromApi();
+        favoritesAvailable = Boolean(customer);
+        favoriteBookIds = customer ? await loadFavoriteIdsFromApi() : [];
+        if (customer && localStorage.getItem(LEGACY_FAVORITES_STORAGE_KEY)) {
+            await importLegacyFavorites();
+        }
+    } catch (error) {
+        favoritesAvailable = false;
+        favoriteBookIds = [];
+        favoritesLoadError = error;
+    }
+    updateFavoriteDisplays();
+}
+
+// Pages that need the list wait on this before reading favoriteBookIds.
+let favoritesReady = loadFavorites();
+
+function isFavoriteBook(bookId) {
+    return favoriteBookIds.includes(bookId);
+}
+
+async function removeFavoriteBook(bookId) {
+    favoriteBookIds = await removeFavoriteInApi(bookId);
+    updateFavoriteDisplays();
+}
+
+async function toggleFavoriteBook(bookId) {
+    favoriteBookIds = isFavoriteBook(bookId)
+        ? await removeFavoriteInApi(bookId)
+        : await addFavoriteInApi(bookId);
 }
 
 // --- Reconciliation after catalog changes ---
 
-// Drop favorites whose books were deleted. Inactive books stay saved.
+// Favorites whose books are still in the catalog. The API leaves out deleted
+// books too; inactive books stay saved.
 function reconcileFavorites(books) {
-    const bookIds = loadFavoritesFromStorage();
-    const remainingIds = bookIds.filter(function (bookId) {
+    return favoriteBookIds.filter(function (bookId) {
         return books.some(function (book) {
             return book.id === bookId;
         });
     });
-
-    if (remainingIds.length !== bookIds.length) {
-        saveFavoritesToStorage(remainingIds);
-    }
-
-    return remainingIds;
 }
 
-// --- Navbar count and heart buttons ---
+// --- Navbar link and heart buttons ---
 
 const FAVORITE_HEART_ICON = `
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
@@ -66,6 +93,7 @@ const FAVORITE_HEART_ICON = `
 function showFavoriteButtonState(button, favorite) {
     const title = button.dataset.bookTitle;
 
+    button.hidden = !favoritesAvailable;
     button.classList.toggle('is-favorite', favorite);
     button.setAttribute('aria-pressed', favorite);
     button.setAttribute('aria-label', favorite
@@ -73,17 +101,20 @@ function showFavoriteButtonState(button, favorite) {
         : 'Add ' + title + ' to favorites');
 }
 
-// Reread storage so every heart on the page and the navbar count agree.
+// Every heart on the page, the navbar link, and its count follow the loaded list.
 function updateFavoriteDisplays() {
-    const bookIds = loadFavoritesFromStorage();
     const favoritesCount = document.getElementById('favoritesCount');
 
     if (favoritesCount) {
-        favoritesCount.textContent = bookIds.length;
+        favoritesCount.textContent = favoriteBookIds.length;
     }
 
+    document.querySelectorAll('.site-navbar a[href="favorites.html"]').forEach(function (link) {
+        link.classList.toggle('d-none', !favoritesAvailable);
+    });
+
     document.querySelectorAll('.favorite-button').forEach(function (button) {
-        showFavoriteButtonState(button, bookIds.includes(Number(button.dataset.bookId)));
+        showFavoriteButtonState(button, favoriteBookIds.includes(Number(button.dataset.bookId)));
     });
 }
 
@@ -97,11 +128,22 @@ function createFavoriteButton(book) {
     button.innerHTML = FAVORITE_HEART_ICON;
     showFavoriteButtonState(button, isFavoriteBook(book.id));
 
-    button.addEventListener('click', function (event) {
+    button.addEventListener('click', async function (event) {
         // Book cards open the detail modal on click; the heart must not.
         event.stopPropagation();
-        toggleFavoriteBook(book.id);
-        updateFavoriteDisplays();
+        if (button.disabled) return;
+        button.disabled = true;
+
+        try {
+            await toggleFavoriteBook(book.id);
+        } catch (error) {
+            // A 401 means the customer logged out elsewhere; reload either way
+            // so the hearts match the account.
+            await loadFavorites();
+        } finally {
+            button.disabled = false;
+            updateFavoriteDisplays();
+        }
     });
 
     return button;
@@ -109,11 +151,7 @@ function createFavoriteButton(book) {
 
 // --- Page initialization ---
 
-window.addEventListener('pageshow', updateFavoriteDisplays);
-
-// Another tab changed the list.
-window.addEventListener('storage', function (event) {
-    if (event.key === FAVORITES_STORAGE_KEY) {
-        updateFavoriteDisplays();
-    }
+// Back/forward can restore an old copy of the page; reload the account's list.
+window.addEventListener('pageshow', function (event) {
+    if (event.persisted) favoritesReady = loadFavorites();
 });

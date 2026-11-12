@@ -69,6 +69,14 @@ function formatBookPriceHtml(book) {
         <s class="regular-price">${currencyFormatter.format(book.price)}</s>`;
 }
 
+// "10% off" badge shown beside a sale price; empty when the book is not on sale.
+// Numbers only, so safe as HTML.
+function formatSaleBadgeHtml(book) {
+    if (!isBookOnSale(book)) return '';
+    const percentOff = Math.round((1 - book.salePrice / book.price) * 100);
+    return ` <span class="badge promo-badge ms-1">${percentOff}% off</span>`;
+}
+
 // --- Stock display rules ---
 
 function isBookOutOfStock(book) {
