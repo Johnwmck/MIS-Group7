@@ -7,7 +7,7 @@
 
    Contents
     6. Home hero ................ animated crimson banner on index.html
-   6b. Seasonal promo ........... Halloween sale banner, sale prices, badges
+   6b. Seasonal promo ........... Holiday sale banner, sale prices, badges
    10. Home carousels ........... book-row carousels and catalog heading
    12. Book page ................ cover, purchase controls, description
    13. Admin reports ............ stat cards on admin.html
@@ -73,20 +73,47 @@
 
 /* ==========================================================================
    6b. Seasonal promo
-   Halloween "Thrills & Chills" banner that replaces the hero on index.html
-   while books are on sale, plus sale-price styling used on every book tile.
+   Christmas "Merry & Bright" banner that replaces the hero on index.html
+   while books are on sale (winter night sky, falling snow, moon, and Santa's
+   sleigh flying across), plus sale-price styling used on every book tile.
    ========================================================================== */
 
 .promo-banner {
-    --promo-glow: #f0a54a;
+    --promo-glow: #f2c14e;
     position: relative;
     overflow: hidden;
     color: #fff;
     padding: 3rem 0;
     margin-bottom: 2rem;
     background:
-        radial-gradient(circle at 80% 35%, rgba(194, 103, 15, 0.35), transparent 45%),
-        linear-gradient(135deg, #121517 0%, var(--brand-ink) 45%, var(--brand-crimson-dark) 100%);
+        radial-gradient(circle at 80% 30%, rgba(242, 193, 78, 0.28), transparent 42%),
+        linear-gradient(135deg, #0a1a2b 0%, #10324a 48%, var(--brand-crimson-dark) 100%);
+}
+
+/* Three layers of soft dots at different sizes drift downward; the pattern
+   tiles so the loop is seamless. */
+.promo-snow {
+    position: absolute;
+    inset: -200px 0 0;
+    pointer-events: none;
+    opacity: 0.75;
+    background-image:
+        radial-gradient(circle, rgba(255, 255, 255, 0.9) 1.5px, transparent 2.5px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.65) 1px, transparent 2px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.45) 1px, transparent 1.5px);
+    background-size: 200px 200px, 130px 130px, 90px 90px;
+    background-position: 0 0, 40px 60px, 20px 100px;
+    animation: promo-snowfall 14s linear infinite;
+}
+
+@keyframes promo-snowfall {
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(200px);
+    }
 }
 
 .promo-banner-inner {
@@ -179,6 +206,7 @@
     margin-left: -2.25rem;
 }
 
+/* Pale winter moon behind the cover fan. */
 .promo-moon {
     position: absolute;
     top: 1.25rem;
@@ -186,53 +214,89 @@
     width: 9rem;
     height: 9rem;
     border-radius: 50%;
-    background: radial-gradient(circle at 38% 38%, #f6ead0, #e6b26a 55%, var(--brand-amber));
-    box-shadow: 0 0 80px rgba(194, 103, 15, 0.55);
-    opacity: 0.85;
+    background: radial-gradient(circle at 38% 38%, #fffdf5, #f4e3b0 55%, #d9b86a);
+    box-shadow: 0 0 90px rgba(242, 193, 78, 0.5);
+    opacity: 0.9;
 }
 
-.promo-bat {
+/* Santa's sleigh and reindeer cross the banner right to left as a cream
+   silhouette, passing in front of the moon, and loop around every 20s. The
+   rig bobs gently so the flight reads as airborne. */
+.promo-sleigh {
     position: absolute;
-    width: 3rem;
-    fill: rgba(233, 231, 222, 0.3);
-    animation: promo-bat-drift 6s ease-in-out infinite;
-}
-
-.promo-bat-1 {
-    top: 2.5rem;
-    right: calc(12% + 2rem);
-    width: 3.5rem;
-    fill: var(--brand-ink);
+    top: 1rem;
+    right: 0;
+    width: 22rem;
     z-index: 1;
+    fill: var(--brand-ivory-soft);
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+    animation: promo-sleigh-fly 20s linear infinite;
 }
 
-.promo-bat-2 {
-    top: 1.5rem;
-    left: 46%;
-    animation-delay: -2s;
+.promo-sleigh-rig {
+    animation: promo-sleigh-bob 2.4s ease-in-out infinite;
 }
 
-.promo-bat-3 {
-    bottom: 1.5rem;
-    left: 38%;
-    width: 2.25rem;
-    animation-delay: -4s;
+.promo-reins,
+.promo-antler,
+.promo-leg,
+.promo-runner {
+    fill: none;
+    stroke: var(--brand-ivory-soft);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-@keyframes promo-bat-drift {
+.promo-reins {
+    stroke-width: 1.5;
+    opacity: 0.8;
+}
+
+.promo-runner {
+    stroke-width: 3.5;
+}
+
+/* Rudolph: the one spot of color on the silhouette. */
+.promo-nose {
+    fill: var(--brand-crimson);
+    filter: drop-shadow(0 0 4px rgba(255, 90, 90, 0.9));
+}
+
+@keyframes promo-sleigh-fly {
+    /* Start just past the right edge, exit past the left, then pause offscreen. */
+    0% {
+        transform: translateX(110%);
+    }
+
+    70%,
+    100% {
+        transform: translateX(calc(-100vw - 100%));
+    }
+}
+
+@keyframes promo-sleigh-bob {
     0%,
     100% {
-        transform: translate(0, 0) rotate(-4deg);
+        transform: translateY(0) rotate(-2deg);
     }
 
     50% {
-        transform: translate(0.75rem, -0.6rem) rotate(4deg);
+        transform: translateY(-6px) rotate(1deg);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .promo-bat {
+    .promo-snow,
+    .promo-sleigh,
+    .promo-sleigh-rig {
         animation: none;
+    }
+
+    /* Parked in front of the moon instead of flying. */
+    .promo-sleigh {
+        right: 8%;
+        top: 2rem;
     }
 }
 
@@ -251,8 +315,9 @@
         right: -1.5rem;
     }
 
-    .promo-bat-1 {
-        right: 1rem;
+    .promo-sleigh {
+        width: 14rem;
+        top: 0.5rem;
     }
 }
 
@@ -271,7 +336,7 @@
 /* Ink rather than amber so it never reads as the (amber) out-of-stock badge. */
 .promo-badge {
     background-color: var(--brand-ink);
-    color: #f0a54a;
+    color: #f2c14e;
     font-size: 1rem;
     letter-spacing: 0.04em;
 }

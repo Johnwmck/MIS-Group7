@@ -102,10 +102,13 @@ function renderPromotion() {
 
     promoBookCount.textContent = saleBooks.length;
 
-    // Books a customer can buy now lead the row, Horror first for the season.
+    // Books a customer can buy now lead the row, Children's first for the
+    // season; within a series, reading order.
     const orderedBooks = saleBooks.slice().sort(function (a, b) {
         return isBookOutOfStock(a) - isBookOutOfStock(b) ||
-            (b.genre === 'Horror') - (a.genre === 'Horror');
+            (b.genre === "Children's") - (a.genre === "Children's") ||
+            (a.seriesName || '').localeCompare(b.seriesName || '') ||
+            (a.seriesOrder || 0) - (b.seriesOrder || 0);
     });
 
     fillBookCarousel(promoPicks, orderedBooks.map(function (book) {

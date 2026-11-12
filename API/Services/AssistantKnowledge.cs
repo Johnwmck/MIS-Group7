@@ -67,8 +67,9 @@ public static class AssistantKnowledge
 
         new("sale", "Do you run sales or promotions?",
             "Yes. Seasonal promotions discount a selection of titles, and discounted books show the sale price " +
-            "next to the regular price in the catalog. The Thrills & Chills sale takes 10% off selected thriller " +
-            "and horror titles every October."),
+            "next to the regular price in the catalog. The Merry & Bright holiday sale takes 20% off every " +
+            "children's book, the Harry Potter and Hunger Games series, and selected fantasy favorites through " +
+            "December 25. The Thrills & Chills sale takes 10% off selected thriller and horror titles every October."),
 
         new("contact", "How do I contact customer service?",
             "Email " + SupportEmail + " or call " + SupportPhone + ", Monday through Friday, 9 AM to 5 PM Central. " +

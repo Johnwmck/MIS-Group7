@@ -19,7 +19,7 @@ public class Book
     // Read-only and derived from the active promotion, so clients cannot set it
     // and saved state never depends on it. Null when the book is not on sale.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public decimal? SalePrice => Services.HalloweenPromotion.GetSalePrice(Id, Price);
+    public decimal? SalePrice => Services.SeasonalPromotions.GetSalePrice(Id, Price);
     [JsonRequired]
     public int Inventory { get; set; }
     public string Status { get; set; } = string.Empty;
