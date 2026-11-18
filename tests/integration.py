@@ -218,6 +218,8 @@ def run(browser=False):
             if browser:
                 from browser_checks import run_browser
                 run_browser(base,check)
+                from assistant_races import run as run_races
+                run_races(base,check)
             # Missing credentials remains explicit. No automatic scripted fallback.
             stop(); env['MIS_LLM_KEY']=''; start(); Api(base).chat('recommend',status=503); check(not Api(base).call('GET','/api/assistant/status')['modelAvailable'],'missing provider credentials is explicit')
             alice.call('POST','/api/customers/logout',{},204); check(alice.call('GET','/api/customers/me',status=204) is None,'sign-out removes server session')

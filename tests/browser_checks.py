@@ -1,9 +1,9 @@
-import json, pathlib, re, time
+import json, pathlib, re, time, os
 from playwright.sync_api import sync_playwright, expect
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 def run_browser(base, check):
     with sync_playwright() as pw:
-        browser=pw.chromium.launch(executable_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless=True)
+        browser=pw.chromium.launch(headless=True, **({'executable_path': os.environ['PLAYWRIGHT_EXECUTABLE_PATH']} if os.environ.get('PLAYWRIGHT_EXECUTABLE_PATH') else {'channel': os.environ['PLAYWRIGHT_CHANNEL']} if os.environ.get('PLAYWRIGHT_CHANNEL') else {}))
         context=browser.new_context(viewport=dict(width=1440,height=1000),reduced_motion='reduce')
         page=context.new_page(); errors=[]; page.on('pageerror',lambda error:errors.append(str(error)))
         artifacts=ROOT/'.test-artifacts'; artifacts.mkdir(exist_ok=True)

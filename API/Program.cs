@@ -118,6 +118,13 @@ app.Use(async (context, next) =>
 });
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapGet("/api/session-context", (HttpContext context) => {
+    context.Response.Headers.CacheControl = "no-store";
+    var user = context.User;
+    var identity = user.Identity?.IsAuthenticated == true
+        ? string.Join("|", user.Claims.OrderBy(c => c.Type).Select(c => c.Type + "=" + c.Value)) : "guest";
+    return Results.Ok(new { context = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(identity))) });
+});
 
 
 app.MapControllers();

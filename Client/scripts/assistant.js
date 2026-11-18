@@ -16,6 +16,36 @@ const ASSISTANT_SUGGESTIONS = [
     'Check the status of my order'
 ];
 
+let assistantGeneration = 0;
+function assistantContext() { return localStorage.getItem('accountChanged') || 'initial'; }
+async function validateAssistantSession() {
+    const response = await fetch('/api/session-context', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Unable to verify your session. Please retry.');
+    const identity = (await response.json()).context;
+    const previous = sessionStorage.getItem('assistantServerContext');
+    if (previous !== identity) {
+        invalidateAssistant();
+        sessionStorage.setItem('assistantServerContext', identity);
+    }
+    return identity;
+}
+function invalidateAssistant() {
+    assistantGeneration++;
+    assistantState?.controller?.abort();
+    sessionStorage.removeItem('assistantHistory');
+    sessionStorage.removeItem('assistantPending');
+    sessionStorage.setItem('assistantContext', assistantContext());
+    if (assistantState) {
+        assistantState.history = []; assistantState.busy = false; assistantState.send.disabled = false;
+        assistantState.panel.querySelector('#assistantRetry').hidden = true;
+        assistantState.panel.querySelector('#assistantCancel').hidden = true;
+        assistantState.status.textContent = '';
+        renderAssistantTranscript();
+    }
+}
+window.addEventListener('accountidentitychanged', invalidateAssistant);
+window.addEventListener('storage', e => { if (e.key === 'accountChanged') invalidateAssistant(); });
+
 // --- Server access (single drop-in point for a different backend later) ---
 
 async function getAssistantResponse(messages, requestId, signal) {
@@ -63,6 +93,10 @@ async function getAssistantStatus() {
 // --- Transcript storage (per browser tab) ---
 
 function loadAssistantHistory() {
+    if (sessionStorage.getItem('assistantContext') !== assistantContext()) {
+        sessionStorage.removeItem('assistantHistory'); sessionStorage.removeItem('assistantPending');
+        sessionStorage.setItem('assistantContext', assistantContext());
+    }
     try {
         const saved = JSON.parse(sessionStorage.getItem(ASSISTANT_HISTORY_KEY) || '[]');
         return Array.isArray(saved) ? saved : [];
@@ -147,24 +181,22 @@ function createAssistantActionButton(action) {
 
 async function addAssistantBookToCart(bookId, quantity) {
     if (typeof setCartQuantity !== 'function') return 'The cart is not available on this page.';
-    const existing = loadCartFromStorage().find(function (item) { return item.bookId === bookId; });
-    let error;
-    try { error = await setCartQuantity(bookId, (existing ? existing.quantity : 0) + quantity); }
-    catch (failure) { return failure.message; }
-    if (!error) {
-        const cartCount = document.getElementById('cartCount');
-        if (cartCount) cartCount.textContent = getCartItemCount(loadCartFromStorage());
-        window.dispatchEvent(new Event('cartchanged'));
-    }
-    return error;
+    const generation = assistantGeneration, context = assistantContext();
+    try {
+        const results = await applyAssistantCartActions([{ bookId, quantity }], crypto.randomUUID(), {
+            valid: () => generation === assistantGeneration && context === assistantContext(),
+            validate: validateAssistantSession
+        });
+        return results.find(result => result.startsWith('Could not add')) || '';
+    } catch (failure) { return failure.name === 'AbortError' ? 'Request cancelled.' : failure.message; }
 }
 
 // Runs each addToCart action once, then records the result on the turn so a
 // page reload (which re-renders the saved transcript) never adds the book again.
-async function performAssistantActions(turn, requestId) {
+async function performAssistantActions(turn, requestId, operation) {
     const additions = (turn.actions || []).filter(a => a.type === 'addToCart');
     if (!additions.length) return;
-    const results = await applyAssistantCartActions(additions, requestId);
+    const results = await applyAssistantCartActions(additions, requestId, operation);
     turn.content = results.join(' ') + (turn.notes?.length ? ' ' + turn.notes.join(' ') : '');
     turn.actions = (turn.actions || []).filter(a => a.type !== 'addToCart');
     turn.actions.push({ type: 'navigate', url: 'cart.html', label: 'Cart' });
@@ -220,7 +252,7 @@ function buildAssistantPanel(container, inline) {
         send: container.querySelector('#assistantSend'),
         status: container.querySelector('#assistantStatus'),
         mode: container.querySelector('#assistantMode'),
-        history: loadAssistantHistory(),
+        history: [],
         busy: false
     };
 
@@ -229,7 +261,7 @@ function buildAssistantPanel(container, inline) {
         sendAssistantMessage(assistantState.input.value);
     });
     container.querySelector('#assistantClear').addEventListener('click', function () {
-        if (assistantState.busy) return;
+        invalidateAssistant();
         sessionStorage.removeItem('assistantPending');
         container.querySelector('#assistantRetry').hidden = true;
         assistantState.history = saveAssistantHistory([]);
@@ -242,6 +274,7 @@ function buildAssistantPanel(container, inline) {
     container.querySelector('#assistantRetry').hidden = !sessionStorage.getItem('assistantPending');
     renderAssistantSuggestions();
     renderAssistantTranscript();
+    validateAssistantSession().then(() => { assistantState.history = loadAssistantHistory(); renderAssistantTranscript(); }).catch(() => {});
     showAssistantModeBadge();
 }
 
@@ -338,11 +371,17 @@ function showAssistantTyping() {
 async function sendAssistantMessage(text, retry = false) {
     const state = assistantState;
     if (state.busy) return;
+    state.send.disabled = true;
+    try { await validateAssistantSession(); } catch (error) { state.send.disabled = false; state.status.textContent = error.message; return; }
+    if (state.busy) return;
     let pending = retry ? JSON.parse(sessionStorage.getItem('assistantPending') || 'null') : null;
     text = (text || '').trim();
     if (!pending && !text) return;
     state.busy = true; state.send.disabled = true; state.input.value = ''; state.status.textContent = 'Connecting to MIS…';
     state.controller = new AbortController();
+    const generation = assistantGeneration, context = assistantContext();
+    const operation = { signal: state.controller.signal, validate: validateAssistantSession, valid: () => generation === assistantGeneration && context === assistantContext() };
+    const check = () => { if (!operation.valid() || operation.signal.aborted) throw new DOMException('Cancelled', 'AbortError'); };
     const cancel = state.panel.querySelector('#assistantCancel'), retryButton = state.panel.querySelector('#assistantRetry');
     cancel.hidden = false; retryButton.hidden = true;
     if (!pending) {
@@ -354,16 +393,19 @@ async function sendAssistantMessage(text, retry = false) {
     renderAssistantTranscript(); const typing = showAssistantTyping();
     try {
         const result = await getAssistantResponse(pending.history, pending.id, state.controller.signal);
-        if (state.controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+        await validateAssistantSession();
+        check();
         const turn = { role: 'assistant', content: result.reply, mode: result.mode, books: result.books || [], actions: result.actions || [], notes: result.notes || [] };
-        await performAssistantActions(turn, pending.id);
+        await performAssistantActions(turn, pending.id, operation);
+        if (!operation.valid()) return;
         state.history.push(turn); state.history = saveAssistantHistory(state.history);
         sessionStorage.removeItem('assistantPending'); state.status.textContent = '';
     } catch (error) {
+        if (!operation.valid()) return;
         state.status.textContent = error.name === 'AbortError' ? 'Request cancelled. You can retry when ready.' : error.message;
         retryButton.hidden = false;
     } finally {
-        typing.remove(); state.busy = false; state.send.disabled = false; cancel.hidden = true;
+        typing.remove(); if (!operation.valid()) return; state.busy = false; state.send.disabled = false; cancel.hidden = true;
         renderAssistantTranscript(); state.input.focus();
     }
 }
@@ -461,4 +503,18 @@ async function renderAssistantFaq(container) {
     mountAssistantWidget();
 })();
 
-window.addEventListener('pagehide', () => assistantState?.controller?.abort());
+window.addEventListener('pagehide', () => { assistantGeneration++; assistantState?.controller?.abort(); });
+
+window.addEventListener('focus', () => validateAssistantSession().catch(() => {}));
+setInterval(() => validateAssistantSession().catch(() => {}), 10000);
+
+window.addEventListener('pageshow', event => {
+    if (event.persisted && assistantState) {
+        assistantState.busy = false; assistantState.send.disabled = false;
+        assistantState.panel.querySelector('#assistantCancel').hidden = true;
+        validateAssistantSession().then(() => {
+            assistantState.history = loadAssistantHistory(); renderAssistantTranscript();
+            assistantState.panel.querySelector('#assistantRetry').hidden = !sessionStorage.getItem('assistantPending');
+        }).catch(() => {});
+    }
+});

@@ -152,12 +152,19 @@ function removeCartItem(bookId) {
 
 // Cart changes and action receipts share one localStorage write. A restored or retried
 // chat turn cannot add twice, even if navigation happens immediately after the write.
-async function applyAssistantCartActions(actions, requestId) {
+async function applyAssistantCartActions(actions, requestId, operation = {}) {
+    const check = () => {
+        if (operation.signal?.aborted || (operation.valid && !operation.valid())) throw new DOMException('Cancelled', 'AbortError');
+    };
     const run = async () => {
+        check();
         const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
         const receipts = saved.assistantReceipts || {};
         if (receipts[requestId]) return receipts[requestId];
-        const books = await loadBooksFromApi();
+        const books = await loadBooksFromApi(operation.signal);
+        check();
+        if (operation.validate) await operation.validate();
+        check();
         // Re-read after the API call to preserve intervening manual additions.
         const latest = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
         if (latest.assistantReceipts?.[requestId]) return latest.assistantReceipts[requestId];
@@ -174,6 +181,7 @@ async function applyAssistantCartActions(actions, requestId) {
             results.push('Added ' + action.quantity + ' × ' + book.title + ' to your cart.');
         }
         const updated = { ...(latest.assistantReceipts || {}), [requestId]: results };
+        check();
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: cart, assistantReceipts: updated }));
         window.dispatchEvent(new Event('cartchanged'));
         const count = document.getElementById('cartCount'); if (count) count.textContent = getCartItemCount(cart);

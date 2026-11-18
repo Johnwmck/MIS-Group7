@@ -12,8 +12,8 @@ async function resetDemoInApi() {
 
 // --- Catalog collection loading ---
 
-async function loadBooksFromApi() {
-    const response = await fetch('/api/books');
+async function loadBooksFromApi(signal) {
+    const response = await fetch('/api/books', { signal });
 
     if (!response.ok) {
         throw new Error('Failed to load books: HTTP ' + response.status);

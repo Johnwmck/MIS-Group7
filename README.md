@@ -211,12 +211,13 @@ reset real data or establish live MIS model access. The terminal test uses a tem
 project layout, pseudo-terminal, and throwaway key; it verifies hidden input, optional
 save, no repeat prompt, and cancelled startup. It requires macOS/Linux.
 
-Optional browser acceptance checks require Python Playwright and locally installed
-Google Chrome (the default executable path in `tests/browser_checks.py` is for macOS):
+Optional browser acceptance checks use Playwright Chromium by default. Set
+`PLAYWRIGHT_EXECUTABLE_PATH` to a browser executable or `PLAYWRIGHT_CHANNEL` to an installed channel such as `chrome`:
 
 ```sh
 python3 -m venv /tmp/team7-browser-checks
 /tmp/team7-browser-checks/bin/pip install playwright
+/tmp/team7-browser-checks/bin/playwright install chromium
 /tmp/team7-browser-checks/bin/python tests/integration.py --browser
 ```
 
@@ -225,3 +226,7 @@ member checkout, a lost purchase response and safe retry, rewards redemption, in
 records/CSV, and desktop/mobile behavior. Screenshots go to ignored `.test-artifacts/`.
 The final live-provider check requires an authorized key with access to the configured
 MIS model; see the handoff for the remaining acceptance step.
+
+Repair verification: 25 core, 52 simulated-provider API, 22 browser acceptance, and
+11 focused browser race checks passed. These do not verify live MIS access.
+Browser race checks run with `tests/integration.py --browser`; no real store reset is used.

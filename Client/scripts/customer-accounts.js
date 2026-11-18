@@ -143,4 +143,5 @@ function accountIdentityChanged() {
     sessionStorage.removeItem('assistantHistory');
     sessionStorage.removeItem('assistantPending');
     localStorage.setItem('accountChanged', crypto.randomUUID());
+    window.dispatchEvent(new Event('accountidentitychanged'));
 }

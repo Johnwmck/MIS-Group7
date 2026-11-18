@@ -30,4 +30,4 @@ async function refreshAccountNavigation() {
     document.querySelectorAll('[data-customer-only]').forEach(element => element.classList.toggle('d-none', !member));
 }
 window.addEventListener('pageshow', refreshAccountNavigation);
-window.addEventListener('storage', event => { if (event.key === 'accountChanged') location.reload(); });
+window.addEventListener('storage', event => { if (event.key === 'accountChanged') { sessionStorage.removeItem('assistantHistory'); sessionStorage.removeItem('assistantPending'); window.dispatchEvent(new Event('accountidentitychanged')); location.reload(); } });

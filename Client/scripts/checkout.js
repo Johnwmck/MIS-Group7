@@ -282,7 +282,7 @@ checkoutForm.addEventListener('submit', async function (event) {
             customerEmail: customerInfo.email.trim(),
             items: checkoutState.items
         }, paymentResult.payment);
-        sessionStorage.setItem('pendingPurchase', JSON.stringify({ request, mode: checkoutState.mode }));
+        sessionStorage.setItem('pendingPurchase', JSON.stringify({ request, mode: checkoutState.mode, context: localStorage.getItem('accountChanged') }));
         order = await createOrderInApi(request);
     } catch (error) {
         purchaseUncertain = Boolean(error.uncertain);
@@ -301,6 +301,13 @@ checkoutForm.addEventListener('submit', async function (event) {
 });
 
 async function confirmPurchase(order, payment, mode) {
+    const pending = JSON.parse(sessionStorage.getItem('pendingPurchase') || 'null');
+    const customer = await loadCurrentCustomerFromApi();
+    if ((customer?.id ?? null) !== (order.customerId ?? null) ||
+        (!order.customerId && pending?.context !== localStorage.getItem('accountChanged'))) {
+        showCheckoutMessage('Purchase confirmation is preserved for the original identity. Sign back in to recover it.');
+        return;
+    }
     // --- Confirmed success and local cleanup ---
     // The server has committed. Cleanup failure must never look like purchase failure.
     checkoutReady = false;
@@ -350,6 +357,11 @@ retryPurchaseButton.addEventListener('click', async () => {
     if (checkoutBusy) return;
     const pending = JSON.parse(sessionStorage.getItem('pendingPurchase') || 'null');
     if (!pending) return;
+    const currentCustomer = await loadCurrentCustomerFromApi();
+    if ((currentCustomer?.id ?? null) !== pending.request.expectedCustomerId || (!currentCustomer && pending.context !== localStorage.getItem('accountChanged'))) {
+        showCheckoutMessage('An uncertain purchase belongs to a different account. Sign back into that account to retry confirmation. The original request is preserved.');
+        return;
+    }
     checkoutBusy = true; retryPurchaseButton.disabled = true;
     try { const order = await createOrderInApi(pending.request); await confirmPurchase(order, pending.request, pending.mode); }
     catch (error) { showCheckoutMessage(error.message + ' The same request is preserved for retry.'); }

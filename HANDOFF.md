@@ -123,3 +123,21 @@ missing credentials. The outstanding live check is described below.
   distributed/multi-server persistence are outside this local scope. For later hosting,
   provide environment variables, HTTPS, durable state/Data Protection storage, and
   non-demo staff credentials. The README covers configuration and reset behavior.
+
+
+Repair-pass verification (November 18, 2026): build passed with zero warnings/errors;
+25 core checks, 52 simulated-provider API checks, 22 browser acceptance checks,
+and 11 focused browser race checks passed. The four terminal checks above describe
+the earlier implementation verification; they were not rerun in this repair pass.
+No live MIS model success was verified in this pass. Existing store JSON was unchanged
+by integration tests. Browser selection now defaults to Playwright Chromium, with
+PLAYWRIGHT_EXECUTABLE_PATH / PLAYWRIGHT_CHANNEL overrides.
+
+Assistant state is scoped to a cross-tab identity epoch and a server-validated session
+fingerprint. Session changes are checked before model use, after model completion,
+after catalog validation, on focus, and every ten seconds. Cart data is not cleared.
+Clear Conversation and page exit invalidate outstanding work. Cart and action receipts
+remain a single write; cancellation after that write does not undo the committed action.
+Uncertain purchases retain their original request. Recovery checks the current account
+before replay and before showing confirmation; guest requests from a changed identity
+epoch are retained but cannot be replayed automatically under the new identity.

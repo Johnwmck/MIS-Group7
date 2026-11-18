@@ -14,4 +14,4 @@ async function staffRequest(method, path = '', body) {
 async function getValidatedInternalSession() { return staffRequest('GET', '/me'); }
 function userHasRequiredRole(user, role) { return user && (user.role === role || user.role === 'Admin'); }
 function getInternalHomePage(role) { return role === 'Admin' ? 'admin.html' : 'employee.html'; }
-function clearInternalSession() { return staffRequest('POST', '/logout'); }
+async function clearInternalSession() { await staffRequest('POST', '/logout'); localStorage.setItem('accountChanged', crypto.randomUUID()); window.dispatchEvent(new Event('accountidentitychanged')); }
