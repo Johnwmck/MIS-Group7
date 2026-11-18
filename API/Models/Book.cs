@@ -16,10 +16,16 @@ public class Book
     public string Genre { get; set; } = string.Empty;
     [JsonRequired]
     public decimal Price { get; set; }
-    // Read-only and derived from the active promotion, so clients cannot set it
-    // and saved state never depends on it. Null when the book is not on sale.
+    // Response-only prices are populated on detached copies by PricingService.
+    // Runtime state always stores the original list price.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public decimal? SalePrice => Services.SeasonalPromotions.GetSalePrice(Id, Price);
+    public decimal? SalePrice { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? MemberPrice { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PromotionName { get; set; }
+    public bool MemberEligible { get; set; }
+    public bool MemberOfferApplied { get; set; }
     [JsonRequired]
     public int Inventory { get; set; }
     public string Status { get; set; } = string.Empty;

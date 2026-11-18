@@ -14,7 +14,7 @@ public static class SavedStateValidation
             if (!valid) throw new InvalidDataException("Invalid saved bookstore state: " + message + " It was not reset.");
         }
         // --- State shape and current catalog ---
-        Require(state.Version == 1, "unsupported format version.");
+        Require(state.Version is 1 or 2, "unsupported format version.");
         Require(state.Books is not null && state.Orders is not null, "missing collections.");
         var bookIds = new HashSet<int>();
         foreach (var book in state.Books!)
@@ -45,6 +45,11 @@ public static class SavedStateValidation
                     highestReferencedBookId = Math.Max(highestReferencedBookId, item!.BookId);
                     subtotal += item.Price * item.Quantity;
                 }
+                Require(CatalogValidation.IsMoney(order.RewardDiscount) && order.RewardDiscount <= subtotal &&
+                    order.PointsRedeemed >= 0 && order.PointsRedeemed % 100 == 0 &&
+                    order.RewardDiscount == order.PointsRedeemed / 100 * 5m && order.PointsEarned >= 0,
+                    $"invalid rewards in order {order.Id}.");
+                subtotal -= order.RewardDiscount;
                 Require(CatalogValidation.IsMoney(order.Total), $"invalid total in order {order.Id}.");
                 // Pre-tax snapshots have all three fields absent/null. Their
                 // original total must still match the recorded item prices.
@@ -87,6 +92,37 @@ public static class SavedStateValidation
         Require(state.NextBookId > highestReferencedBookId &&
             state.NextOrderId > orderIds.DefaultIfEmpty(0).Max(), "ID counters would reuse existing IDs.");
 
+        Require(state.Orders.Where(o => o.RequestKey.HasValue).Select(o => o.RequestKey).Distinct().Count() ==
+            state.Orders.Count(o => o.RequestKey.HasValue), "duplicate checkout key.");
+        Require(state.Promotions is not null && state.Rewards is not null && state.Staff is not null && state.Customers is not null, "missing membership collections.");
+        Require(state.Promotions!.Select(p => p.Id).Distinct().Count() == state.Promotions!.Count &&
+            state.NextPromotionId > state.Promotions.Select(p => p.Id).DefaultIfEmpty(0).Max(), "invalid promotion IDs.");
+        foreach (var p in state.Promotions)
+            Require(p.Id > 0 && !string.IsNullOrWhiteSpace(p.Name) && p.Name.Length <= 100 && p.PercentOff > 0 && p.PercentOff <= 100 &&
+                CatalogValidation.IsMoney(p.PercentOff) && p.StartsAt != default && p.EndsAt > p.StartsAt && p.BookIds is not null &&
+                p.BookIds.All(id => id > 0) && p.BookIds.Distinct().Count() == p.BookIds.Count, "invalid promotion.");
+        Require(state.Staff!.Select(a => a.Id).Distinct().Count() == state.Staff!.Count &&
+            state.Staff.Select(a => a.Username).Distinct(StringComparer.OrdinalIgnoreCase).Count() == state.Staff!.Count &&
+            state.NextStaffId > state.Staff.Select(a => a.Id).DefaultIfEmpty(0).Max(), "invalid staff IDs.");
+        foreach (var a in state.Staff) Require(a.Id > 0 && a.Role is "Admin" or "Employee" && !string.IsNullOrWhiteSpace(a.PasswordHash) &&
+            !string.IsNullOrWhiteSpace(a.Name) && !string.IsNullOrWhiteSpace(a.Username) && a.SessionStamp != Guid.Empty, "invalid staff account.");
+        Require(state.Rewards!.Select(e => (e.OrderId, e.Kind)).Distinct().Count() == state.Rewards!.Count, "duplicate reward entry.");
+        foreach (var e in state.Rewards)
+        {
+            var o = state.Orders.SingleOrDefault(o => o.Id == e.OrderId && o.CustomerId == e.CustomerId);
+            Require(o is not null && state.Customers!.Any(c => c.Id == e.CustomerId) && e.Date != default, "orphaned reward entry.");
+            Require(e.Kind switch { "Earn" => e.Points == o!.PointsEarned, "Redeem" => e.Points == -o!.PointsRedeemed,
+                "RefundEarn" => o!.Refund is not null && e.Points == -o.PointsEarned,
+                "RefundRedeem" => o!.Refund is not null && e.Points == o.PointsRedeemed, _ => false }, "reward entry mismatch.");
+        }
+        foreach (var o in state.Orders.Where(o => o.RequestKey.HasValue && o.CustomerId.HasValue))
+        {
+            Require(o.PointsEarned == decimal.Floor(o.Subtotal ?? 0), "earned points mismatch.");
+            foreach (var kind in new[] { "Earn", "Redeem" })
+                Require(state.Rewards!.Count(e => e.OrderId == o.Id && e.Kind == kind) == 1, "missing purchase ledger entry.");
+            if (o.Refund is not null) foreach (var kind in new[] { "RefundEarn", "RefundRedeem" })
+                Require(state.Rewards!.Count(e => e.OrderId == o.Id && e.Kind == kind) == 1, "missing refund ledger entry.");
+        }
         // --- Customer accounts ---
         // Emails are saved normalized, so one email can hold only one account.
         Require(state.Customers is not null, "missing customer accounts.");
@@ -100,7 +136,7 @@ public static class SavedStateValidation
                     customer.Email, customer.Phone) == "" &&
                 customer.Email == CustomerValidation.NormalizeEmail(customer.Email) &&
                 customerEmails.Add(customer.Email) &&
-                !string.IsNullOrWhiteSpace(customer.PasswordHash) &&
+                customer.SessionStamp != Guid.Empty && !string.IsNullOrWhiteSpace(customer.PasswordHash) &&
                 customer.CreatedAt != default && customer.CreatedAt.Offset == TimeSpan.Zero,
                 $"invalid or duplicate details in customer account {customer.Id}.");
 

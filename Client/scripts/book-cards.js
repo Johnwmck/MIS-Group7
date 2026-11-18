@@ -23,14 +23,14 @@ function createBookCard(book) {
     col.innerHTML = `
         <div class="card h-100${outOfStock ? ' out-of-stock' : ''}" role="button">
             <div class="position-relative">
-                <img src="${book.image}" class="card-img-top" alt="${book.title}">
+                <img src="${escapeBookHtml(book.image)}" class="card-img-top" loading="lazy" alt="${escapeBookHtml(book.title)}">
                 ${outOfStock
             ? '<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>'
             : ''}
             </div>
             <div class="card-body">
-                <h3 class="card-title h6">${book.title}</h3>
-                <p class="card-text book-author">${book.author}</p>
+                <h3 class="card-title h6">${escapeBookHtml(book.title)}</h3>
+                <p class="card-text book-author">${escapeBookHtml(book.author)}</p>
                 <p class="card-text book-price fw-bold">${formatBookPriceHtml(book)}${formatSaleBadgeHtml(book)}</p>
             </div>
         </div>

@@ -15,7 +15,9 @@ public static class CustomerSession
         var identity = new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, customer.Id.ToString(CultureInfo.InvariantCulture)),
-            new Claim(ClaimTypes.Email, customer.Email)
+            new Claim(ClaimTypes.Email, customer.Email),
+            new Claim(ClaimTypes.Role, "Customer"),
+            new Claim("stamp", customer.SessionStamp.ToString())
         }, CookieAuthenticationDefaults.AuthenticationScheme);
 
         return context.SignInAsync(
@@ -33,13 +35,13 @@ public static class CustomerSession
     // reused the same ID after a reset, and ends other sessions after an email change.
     public static Customer? Find(ClaimsPrincipal user, IEnumerable<Customer> customers)
     {
-        if (user.Identity?.IsAuthenticated != true) return null;
+        if (user.Identity?.IsAuthenticated != true || !user.IsInRole("Customer")) return null;
 
         var idClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var email = user.FindFirst(ClaimTypes.Email)?.Value;
         if (!int.TryParse(idClaim, NumberStyles.None, CultureInfo.InvariantCulture, out var customerId) || email is null)
             return null;
 
-        return customers.FirstOrDefault(customer => customer.Id == customerId && customer.Email == email);
+        return customers.FirstOrDefault(customer => customer.Id == customerId && customer.Email == email && customer.SessionStamp.ToString() == user.FindFirst("stamp")?.Value);
     }
 }

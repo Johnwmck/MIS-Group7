@@ -96,7 +96,7 @@ public class CustomersController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<CustomerProfile>> GetCurrent()
     {
-        if (User.Identity?.IsAuthenticated != true) return NoContent();
+        if (!User.IsInRole("Customer")) return NoContent();
 
         Customer? customer;
         lock (store.SyncRoot)

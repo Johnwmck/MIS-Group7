@@ -39,7 +39,7 @@ async function loadOrdersFromApi() {
 }
 
 // A lost response does not prove a failed purchase. Mark ambiguous outcomes so
-// checkout can block blind retries without idempotency support on the server.
+// checkout can retry its exact saved request with the same idempotency key.
 async function createOrderInApi(request) {
     let response;
     let result;
@@ -51,7 +51,7 @@ async function createOrderInApi(request) {
         });
         result = await response.json();
     } catch (cause) {
-        const error = new Error('The purchase result could not be confirmed. Check order history before retrying.');
+        const error = new Error('The purchase result could not be confirmed. Use Retry confirmation to recover the same order safely.');
         error.uncertain = true;
         throw error;
     }
@@ -65,7 +65,7 @@ async function createOrderInApi(request) {
     }
     if (!result || !Number.isInteger(result.id) || !Array.isArray(result.items) ||
         !Number.isFinite(result.total)) {
-        const error = new Error('The purchase response was incomplete. Check order history before retrying.');
+        const error = new Error('The purchase response was incomplete. Use Retry confirmation to recover the same order safely.');
         error.uncertain = true;
         throw error;
     }

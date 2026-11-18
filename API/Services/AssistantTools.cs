@@ -10,6 +10,8 @@ public sealed class ToolOutcome
     public string Content { get; init; } = string.Empty;
     public List<AssistantBookCard> Books { get; init; } = new();
     public AssistantAction? Action { get; init; }
+    public List<AssistantAction> Actions { get; init; } = new();
+    public List<string> Notes { get; init; } = new();
 }
 
 // The assistant's tools over the live store. Catalog and order reads happen
@@ -25,12 +27,19 @@ public sealed class AssistantTools
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
 
-    public AssistantTools(BookstoreStore store) { this.store = store; }
+    private readonly IHttpContextAccessor context;
+    public AssistantChatRequest Request { get; set; } = new();
+    private System.Security.Claims.ClaimsPrincipal User => context.HttpContext?.User ?? new();
+    public AssistantTools(BookstoreStore store, IHttpContextAccessor context) { this.store = store; this.context = context; }
+    private bool Member => CustomerSession.Find(User, store.Customers) is not null;
 
-    // --- Tool definitions in Ollama's (OpenAI-style) function format ---
+    // --- Tool definitions in OpenAI-compatible function format ---
 
     public static readonly List<object> Definitions = new()
     {
+        Function("store_information", "Get current promotions, member benefits, rewards rules, store policies and the signed-in customer's points balance.", new { type = "object", properties = new { } }),
+        Function("get_series", "Get every catalog entry in a named series, in decimal reading order, including unavailable books. Clarify ambiguous series names.", new { type = "object", properties = new { name = new { type = "string" } }, required = new[] { "name" } }),
+        Function("add_series", "Prepare the requested collection for the cart in reading order. Unavailable entries are skipped and reported. Ask whether to add duplicates if any entries are already in the cart.", new { type = "object", properties = new { name = new { type = "string" }, include_duplicates = new { type = "boolean" }, quantity = new { type = "integer", description = "Copies of each entry, default 1." } }, required = new[] { "name" } }),
         Function("search_books",
             "Search the bookstore catalog for in-stock books. Use before recommending any title. Returns at most a few matches with id, price, and availability.",
             new
@@ -40,6 +49,8 @@ public sealed class AssistantTools
                 {
                     query = new { type = "string", description = "Words from the title, author, series, or topic. Leave empty to browse a genre." },
                     genre = new { type = "string", description = "Optional genre filter such as Fantasy, Mystery, Romance, Science Fiction, Nonfiction." },
+                    exclude_author = new { type = "string", description = "Exclude this author for another-author follow-ups." },
+                    exclude_ids = new { type = "array", items = new { type = "integer" }, description = "Exclude previously shown book ids." },
                     max_price = new { type = "number", description = "Optional maximum price in US dollars." },
                     limit = new { type = "integer", description = "How many results to return, 1-6. Default 4." }
                 }
@@ -56,7 +67,7 @@ public sealed class AssistantTools
                 required = new[] { "book_id" }
             }),
         Function("lookup_order",
-            "Look up an order's status. Requires BOTH the order number and the email address used at checkout.",
+            "Read the signed-in customer's own order by number. Identity comes from the authenticated session, never supplied email or customer ID.",
             new
             {
                 type = "object",
@@ -65,7 +76,7 @@ public sealed class AssistantTools
                     order_id = new { type = "integer", description = "The order number." },
                     email = new { type = "string", description = "The email address used when the order was placed." }
                 },
-                required = new[] { "order_id", "email" }
+                required = new[] { "order_id" }
             }),
         Function("add_to_cart",
             "Add a book to the customer's shopping cart. Give the book id (from search_books or a 'Books shown' note) or the exact title.",
@@ -102,21 +113,51 @@ public sealed class AssistantTools
     {
         try
         {
+            if (arguments.ValueKind != JsonValueKind.Object) return new() { Content = Error("Tool arguments must be an object.") };
+            if (name is "add_to_cart" or "add_series" && !HasCartIntent(Request.Messages.LastOrDefault()?.Content ?? "") && !IsDuplicateClarification())
+                return new() { Content = Error("Ask the customer to explicitly request cart additions first.") };
             return name switch
             {
+                "store_information" => StoreInformation(),
+                "get_series" => SeriesTool(arguments, false),
+                "add_series" => SeriesTool(arguments, true),
                 "search_books" => SearchTool(arguments),
                 "list_genres" => ListGenresTool(),
                 "get_book_details" => BookDetailsTool(arguments),
                 "lookup_order" => LookupOrderTool(arguments),
                 "add_to_cart" => AddToCartTool(arguments),
                 "navigate" => NavigateTool(arguments),
-                _ => new ToolOutcome { Content = Error($"Unknown tool '{name}'.") }
+                _ => new ToolOutcome { Content = Error("That action is not supported. I can help find books, prepare cart additions, or explain store benefits.") }
             };
         }
         catch (Exception error) when (error is JsonException or FormatException or InvalidOperationException)
         {
-            return new ToolOutcome { Content = Error("The tool arguments were not valid: " + error.Message) };
+            return new ToolOutcome { Content = Error("The tool arguments were not valid. Use the declared field types and whole-number quantities.") };
         }
+    }
+
+    public static bool HasCartIntent(string text)
+    {
+        const System.Text.RegularExpressions.RegexOptions flags = System.Text.RegularExpressions.RegexOptions.IgnoreCase;
+        if (System.Text.RegularExpressions.Regex.IsMatch(text, @"\b(how|why|should I|don't|do not|not to|never)\b", flags)) return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(text.Trim(), @"^(please\s+)?(add|put|include)\b|\b(can|could|would|will) you (please )?(add|put|include)\b|^yes\b|^I (want|would like) (you )?to (add|put|include)\b", flags);
+    }
+
+    public static bool? DuplicateChoice(string text)
+    {
+        const System.Text.RegularExpressions.RegexOptions flags = System.Text.RegularExpressions.RegexOptions.IgnoreCase;
+        if (System.Text.RegularExpressions.Regex.IsMatch(text, @"\b(skip|exclude|without|no) (the )?(duplicates|extra copies)\b|\b(only|just) (the )?missing\b", flags)) return false;
+        if (System.Text.RegularExpressions.Regex.IsMatch(text, @"\b(duplicates|extra copies|another copy)\b", flags) &&
+            !System.Text.RegularExpressions.Regex.IsMatch(text, @"\b(don't|do not|not)\b", flags)) return true;
+        return null;
+    }
+    private bool IsDuplicateClarification()
+    {
+        var latest = Request.Messages.LastOrDefault()?.Content ?? "";
+        var previous = Request.Messages.SkipLast(1).LastOrDefault(m => m.Role == "assistant")?.Content ?? "";
+        var priorRequest = Request.Messages.SkipLast(1).LastOrDefault(m => m.Role == "user")?.Content ?? "";
+        return !System.Text.RegularExpressions.Regex.IsMatch(latest, @"\b(how|why|should|what)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase) &&
+            DuplicateChoice(latest).HasValue && previous.Contains("already in your cart", StringComparison.OrdinalIgnoreCase) && HasCartIntent(priorRequest);
     }
 
     private static string Error(string message) => JsonSerializer.Serialize(new { error = message }, JsonOptions);
@@ -130,7 +171,11 @@ public sealed class AssistantTools
         var maxPrice = GetDecimal(args, "max_price");
         var limit = Math.Clamp(GetInt(args, "limit") ?? 4, 1, 6);
 
-        var books = SearchBooks(query, genre, maxPrice, limit);
+        var excluded = GetString(args, "exclude_author");
+        var ids = args.TryGetProperty("exclude_ids", out var list) && list.ValueKind == JsonValueKind.Array ?
+            list.EnumerateArray().Select(v => v.GetInt32()).ToHashSet() : new HashSet<int>();
+        var books = SearchBooks(query, genre, maxPrice, 1000)
+            .Where(b => (string.IsNullOrWhiteSpace(excluded) || !b.Author.Contains(excluded, StringComparison.OrdinalIgnoreCase)) && !ids.Contains(b.Id)).Take(limit).ToList();
         if (books.Count == 0)
             return new ToolOutcome { Content = JsonSerializer.Serialize(new { results = Array.Empty<object>(), note = "No in-stock books matched. Try fewer words or a different genre." }, JsonOptions) };
 
@@ -193,13 +238,14 @@ public sealed class AssistantTools
     private ToolOutcome LookupOrderTool(JsonElement args)
     {
         var id = GetInt(args, "order_id");
-        var email = GetString(args, "email");
-        if (id is null || string.IsNullOrWhiteSpace(email))
-            return new ToolOutcome { Content = Error("Both the order number and the email address are required.") };
-
-        var order = FindOrder(id.Value, email);
-        if (order is null)
-            return new ToolOutcome { Content = Error("No order matches that order number and email. Ask the customer to double-check both.") };
+        Order? order;
+        lock (store.SyncRoot)
+        {
+            var customer = CustomerSession.Find(User, store.Customers);
+            if (customer is null) return new() { Content = Error("Sign in to read your own order history. Guest orders cannot be looked up by email.") };
+            order = store.Orders.Find(o => o.Id == id && o.CustomerId == customer.Id);
+        }
+        if (order is null) return new() { Content = Error("Order not found in your account.") };
 
         return new ToolOutcome { Content = JsonSerializer.Serialize(DescribeOrder(order), JsonOptions) };
     }
@@ -217,13 +263,14 @@ public sealed class AssistantTools
             var matches = SearchBooks(title, null, null, 3);
             var exact = matches.Where(match => match.Title.Equals(title.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
             if (exact.Count == 1) book = exact[0];
-            else if (matches.Count == 1) book = matches[0];
-            else if (matches.Count > 1)
+
+            else if (matches.Count > 0)
                 return new ToolOutcome
                 {
+                    Books = matches.Select(ToCard).ToList(),
                     Content = JsonSerializer.Serialize(new
                     {
-                        error = "Several books match that title. Ask the customer which one, or call add_to_cart with one of these ids.",
+                        error = "Several books match that title. Which exact title would you like?",
                         candidates = matches.Select(match => new { id = match.Id, title = match.Title, author = match.Author })
                     }, JsonOptions)
                 };
@@ -231,18 +278,21 @@ public sealed class AssistantTools
         if (book is null)
             return new ToolOutcome { Content = Error("No book matched. Call search_books with the title to find its id, then add_to_cart again.") };
 
-        var error = GetAddToCartError(book, quantity);
+        if (args.TryGetProperty("quantity", out var q) && GetInt(args, "quantity") is null)
+            return new() { Content = Error("Quantity must be a whole number.") };
+        var inCart = Request.Cart.FirstOrDefault(i => i.BookId == book.Id)?.Quantity ?? 0;
+        var error = quantity < 1 || quantity > 1000 ? "Quantity must be 1–1000." : GetAddToCartError(book, quantity + inCart);
         if (error != "") return new ToolOutcome { Content = Error(error) };
 
         return new ToolOutcome
         {
             Content = JsonSerializer.Serialize(new
             {
-                added = true,
+                prepared = true,
                 title = book.Title,
                 quantity,
                 unitPrice = EffectivePrice(book),
-                note = "The book is being added to the customer's cart in their browser. Confirm it briefly."
+                note = "Prepared only. The browser will validate inventory and confirm whether this was added."
             }, JsonOptions),
             Books = new() { ToCard(book) },
             Action = new AssistantAction { Type = "addToCart", BookId = book.Id, Quantity = quantity, Title = book.Title }
@@ -263,7 +313,55 @@ public sealed class AssistantTools
         };
     }
 
-    // --- Shared catalog/order helpers (also used by the fallback bot) ---
+    private ToolOutcome StoreInformation()
+    {
+        lock (store.SyncRoot)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var c = CustomerSession.Find(User, store.Customers);
+            return new() { Content = JsonSerializer.Serialize(new { member = c is not null,
+                balance = c is null ? (int?)null : PricingService.Balance(store.Rewards, c.Id),
+                rules = PricingService.RewardsRule, policies = AssistantKnowledge.Faqs,
+                promotions = store.Promotions.Where(p => p.Active && now >= p.StartsAt && now < p.EndsAt).Select(p => new { p.Name, p.PercentOff, p.MembersOnly, p.StartsAt, p.EndsAt,
+                    eligibleBooks = p.BookIds.Count, sampleBooks = store.Books.Where(b => p.BookIds.Contains(b.Id)).Take(6).Select(b => new { b.Id, b.Title }) }) }, JsonOptions) };
+        }
+    }
+
+    private ToolOutcome SeriesTool(JsonElement args, bool add)
+    {
+        var name = GetString(args, "name");
+        if (string.IsNullOrWhiteSpace(name)) return new() { Content = Error("Specify a series name.") };
+        List<Book> books;
+        lock (store.SyncRoot)
+        {
+            var names = store.Books.Where(b => b.SeriesName?.Contains(name, StringComparison.OrdinalIgnoreCase) == true).Select(b => b.SeriesName!).Distinct().ToList();
+            if (names.Count != 1) return new() { Content = JsonSerializer.Serialize(new { error = "Clarify the series name.", candidates = names }, JsonOptions) };
+            books = store.Books.Where(b => b.SeriesName == names[0]).OrderBy(b => b.SeriesOrder ?? decimal.MaxValue).ThenBy(b => b.Id).Select(Copy).ToList();
+        }
+        var cards = books.Select(ToCard).ToList();
+        var duplicates = books.Where(b => Request.Cart.Any(i => i.BookId == b.Id)).ToList();
+        // The customer's words resolve duplication; a model flag cannot grant permission.
+        bool? include = DuplicateChoice(Request.Messages.LastOrDefault()?.Content ?? "");
+        if (add && duplicates.Count > 0 && include is null)
+            return new() { Books = cards, Content = JsonSerializer.Serialize(new { error = "Some of these books are already in your cart. Would you like extra copies, or only the missing entries?", alreadyInCart = duplicates.Select(b => b.Title) }, JsonOptions) };
+        var quantity = GetInt(args, "quantity") ?? 1;
+        if (quantity < 1 || quantity > 1000 || (args.TryGetProperty("quantity", out _) && GetInt(args, "quantity") is null)) return new() { Content = Error("Use a whole-number quantity of 1–1000.") };
+        var actions = new List<AssistantAction>();
+        var skipped = new List<string>();
+        foreach (var b in books)
+        {
+            var old = Request.Cart.FirstOrDefault(i => i.BookId == b.Id)?.Quantity ?? 0;
+            if (add && old > 0 && include == false) { skipped.Add(b.Title + ": already in cart"); continue; }
+            var error = GetAddToCartError(b, old + quantity);
+            if (error != "") { skipped.Add(b.Title + ": " + error); continue; }
+            if (add) actions.Add(new() { Type = "addToCart", BookId = b.Id, Quantity = quantity, Title = b.Title });
+        }
+        return new() { Books = cards, Actions = actions, Notes = skipped, Content = JsonSerializer.Serialize(new {
+            entries = books.Select(b => new { b.Id, b.Title, b.SeriesOrder, price = EffectivePrice(b), availability = DescribeAvailability(b) }),
+            skipped, prepared = actions.Count, note = "Only catalog entries are included. Browser confirmation is required for additions." }, JsonOptions) };
+    }
+
+    // --- Shared catalog/order helpers ---
 
     public static bool IsPurchasable(Book book) =>
         book.Status == "Active" && book.ManualStockOverride != true && book.Inventory > 0;
@@ -279,7 +377,7 @@ public sealed class AssistantTools
     }
 
     public static AssistantBookCard ToCard(Book book) =>
-        new(book.Id, book.Title, book.Author, book.Genre, book.Price, book.SalePrice, DescribeAvailability(book), book.Image);
+        new(book.Id, book.Title, book.Author, book.Genre, book.Price, book.SalePrice, DescribeAvailability(book), book.Image, book.MemberPrice, book.MemberEligible, book.MemberOfferApplied, book.SeriesOrder);
 
     public static string GetAddToCartError(Book book, int quantity)
     {
@@ -298,23 +396,11 @@ public sealed class AssistantTools
         }
     }
 
-    // The email must match: order numbers are sequential and easy to guess.
-    public Order? FindOrder(int id, string email)
-    {
-        lock (store.SyncRoot)
-        {
-            var order = store.Orders.Find(order => order.Id == id);
-            if (order is null) return null;
-            return string.Equals(order.CustomerEmail.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase)
-                ? order : null;
-        }
-    }
-
     public static object DescribeOrder(Order order) => new
     {
         orderNumber = order.Id,
         placed = order.Date.ToString("MMMM d, yyyy"),
-        // The prototype never ships anything; the status is derived from age so the demo feels real.
+        // No fabricated fulfillment state.
         status = DescribeOrderStatus(order),
         customerName = order.CustomerName,
         items = order.Items.Select(item => new { item.Title, item.Quantity, item.Price }),
@@ -328,13 +414,9 @@ public sealed class AssistantTools
         if (order.Refund is { } refund)
         {
             var done = refund.Type == OrderRefundPolicy.Return ? "Returned" : "Cancelled";
-            return $"{done} on {refund.Date:MMMM d, yyyy}; {refund.Total:C} refunded";
+            return $"{done} on {refund.Date:MMMM d, yyyy}; {refund.Total:C} recorded as a demo refund";
         }
-        var age = DateTimeOffset.UtcNow - order.Date;
-        if (age < TimeSpan.FromHours(4)) return "Processing";
-        if (age < TimeSpan.FromDays(1)) return "Shipped (demo tracking: on its way)";
-        if (age < TimeSpan.FromDays(5)) return "In transit, arriving in 3-5 business days from the ship date";
-        return "Delivered";
+        return "Completed demo purchase; no shipping or payment processing.";
     }
 
     // Case-insensitive word matching with a simple score: title and author hits
@@ -465,6 +547,7 @@ public sealed class AssistantTools
     {
         switch (page.Trim().ToLowerInvariant())
         {
+            case "account": return ("account.html", "My Account");
             case "home": case "index": return ("index.html", "Home");
             case "catalog": case "browse": case "shop": return ("catalog.html", "Catalog");
             case "cart": return ("cart.html", "Cart");
@@ -478,13 +561,7 @@ public sealed class AssistantTools
         }
     }
 
-    private static Book Copy(Book book) => new()
-    {
-        Id = book.Id, Revision = book.Revision, Isbn = book.Isbn, Title = book.Title, Author = book.Author,
-        Genre = book.Genre, Price = book.Price, Inventory = book.Inventory, Status = book.Status, Image = book.Image,
-        Description = book.Description, AuthorBio = book.AuthorBio, ManualStockOverride = book.ManualStockOverride,
-        SeriesName = book.SeriesName, SeriesOrder = book.SeriesOrder
-    };
+    private Book Copy(Book book) => PricingService.View(book, store.Promotions, Member, DateTimeOffset.UtcNow);
 
     private static string Truncate(string text, int max)
     {
@@ -510,8 +587,8 @@ public sealed class AssistantTools
     {
         if (args.ValueKind != JsonValueKind.Object || !args.TryGetProperty(name, out var value)) return null;
         if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)) return number;
-        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var real)) return (int)Math.Round(real);
-        if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out var parsed)) return parsed;
+
+
         return null;
     }
 

@@ -47,6 +47,7 @@
         </div>
 
         <div id="checkoutMessage" class="alert alert-warning d-none" role="alert"></div>
+        <button type="button" class="btn btn-outline-primary mb-3" id="retryPurchaseButton" hidden>Retry confirmation</button>
 
         <div id="checkoutContent" class="row g-4 d-none">
             <section class="col-lg-7">
@@ -82,31 +83,37 @@
 
                                 <div id="newCardFields">
                                     <div class="mb-3">
-                                        <label class="form-label" for="cardNameInput">Name on card</label>
+                                        <label class="form-label" for="cardNameInput">Demo name</label>
                                         <input type="text" class="form-control" id="cardNameInput"
-                                            autocomplete="cc-name" maxlength="60">
+                                            autocomplete="off" maxlength="60">
                                     </div>
 
                                     <div class="mb-3">
-                                        <label class="form-label" for="cardNumberInput">Card number</label>
+                                        <label class="form-label" for="cardNumberInput">Demo card number</label>
                                         <input type="text" class="form-control" id="cardNumberInput"
-                                            autocomplete="cc-number" inputmode="numeric" maxlength="23"
-                                            aria-describedby="cardBrandHint">
-                                        <div class="form-text" id="cardBrandHint">
-                                            Visa, Mastercard, American Express, or Discover.
+                                            autocomplete="off" inputmode="numeric" maxlength="19"
+                                            aria-describedby="demoCardHint">
+                                        <div class="form-text" id="demoCardHint">
+                                            Demo only: enter any 16 digits. Do not use real card details.
                                         </div>
                                     </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="cardCvvInput">CVV (any 3 digits)</label>
+                                        <input type="text" class="form-control" id="cardCvvInput"
+                                            autocomplete="off" inputmode="numeric" maxlength="3">
+                                    </div>
+
 
                                     <div class="row g-2 mb-3">
                                         <div class="col-6">
                                             <label class="form-label" for="cardMonthSelect">Expiration month</label>
-                                            <select class="form-select" id="cardMonthSelect" autocomplete="cc-exp-month">
+                                            <select class="form-select" id="cardMonthSelect" autocomplete="off">
                                                 <option value="">Month</option>
                                             </select>
                                         </div>
                                         <div class="col-6">
                                             <label class="form-label" for="cardYearSelect">Expiration year</label>
-                                            <select class="form-select" id="cardYearSelect" autocomplete="cc-exp-year">
+                                            <select class="form-select" id="cardYearSelect" autocomplete="off">
                                                 <option value="">Year</option>
                                             </select>
                                         </div>
@@ -132,6 +139,11 @@
                                 history and save cards for next time.
                             </p>
 
+                            <div class="mb-3 d-none" id="rewardsChoice">
+                                <label for="rewardsSelect" class="form-label">Use rewards — <span id="checkoutRewardsBalance"></span></label>
+                                <select id="rewardsSelect" class="form-select"><option value="0">Keep my points</option></select>
+                                <p class="form-text">100 points = $5 off merchandise before tax. Points from this order become available afterward.</p>
+                            </div>
                             <button type="submit" class="btn btn-primary" id="placeOrderButton" disabled>
                                 Place Order
                             </button>
@@ -160,6 +172,7 @@
                             </table>
                         </div>
 
+                        <p id="checkoutSavings" class="member-price-note" role="status"></p>
                         <div class="text-end">
                             <div>Subtotal: <span id="checkoutSubtotal"></span></div>
                             <div><span id="checkoutTaxLabel">Sales tax (10%)</span>: <span id="checkoutTax"></span></div>
@@ -175,7 +188,8 @@
 
             <div class="card-body">
                 <h2 class="h4">Thank you, <span id="confirmationCustomerName"></span>!</h2>
-                <p>Your order was placed successfully.</p>
+                <p>Your demo order was saved. No payment was processed, no shipment is created, and no email is sent.</p>
+                <p id="confirmationRewards" class="member-price-note"></p>
                 <p>
                     <strong>Order ID:</strong>
                     <span id="confirmationOrderId"></span>

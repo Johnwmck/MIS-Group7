@@ -83,6 +83,13 @@
 
             <p class="alert alert-danger d-none" id="logoutError" role="alert"></p>
 
+            <section class="membership-benefits mb-4" aria-labelledby="rewardsHeading">
+                <h2 id="rewardsHeading">Your membership &amp; rewards</h2>
+                <p id="rewardBalance" class="fs-4">Loading points…</p>
+                <p id="rewardRules"></p>
+                <details><summary>Points history</summary><div id="rewardHistory" class="table-responsive mt-2"></div></details>
+                <a href="catalog.html">Browse current member prices</a>
+            </section>
             <div class="tab-content">
                 <!-- Order history -->
                 <section class="tab-pane active" id="ordersSection" role="tabpanel" aria-labelledby="ordersTab"
@@ -91,7 +98,7 @@
                     <h2 class="mb-1">Order History</h2>
                     <p class="text-muted">
                         Orders you place while logged in appear here. You can return or cancel an
-                        order within 30 days, and your refund receipt appears here right away.
+                        demo order within 30 days. This restores demo inventory and adjusts points; no money moves.
                     </p>
 
                     <p class="alert alert-success d-none" id="orderMessage" role="status" tabindex="-1"></p>
@@ -126,34 +133,40 @@
                                 <div class="card-body">
                                     <form id="addCardForm" novalidate>
                                         <div class="mb-3">
-                                            <label class="form-label" for="cardNameInput">Name on card</label>
+                                            <label class="form-label" for="cardNameInput">Demo name</label>
                                             <input type="text" class="form-control" id="cardNameInput"
-                                                autocomplete="cc-name" maxlength="60" required>
+                                                autocomplete="off" maxlength="60" required>
                                         </div>
 
                                         <div class="mb-3">
-                                            <label class="form-label" for="cardNumberInput">Card number</label>
+                                            <label class="form-label" for="cardNumberInput">Demo card number</label>
                                             <input type="text" class="form-control" id="cardNumberInput"
-                                                autocomplete="cc-number" inputmode="numeric" maxlength="23"
-                                                aria-describedby="cardBrandHint" required>
-                                            <div class="form-text" id="cardBrandHint">
-                                                Visa, Mastercard, American Express, or Discover.
+                                                autocomplete="off" inputmode="numeric" maxlength="19"
+                                                aria-describedby="demoCardHint" required>
+                                            <div class="form-text" id="demoCardHint">
+                                                Demo only: enter any 16 digits. Do not use real card details.
                                             </div>
                                         </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="cardCvvInput">CVV (any 3 digits)</label>
+                                        <input type="text" class="form-control" id="cardCvvInput"
+                                            autocomplete="off" inputmode="numeric" maxlength="3">
+                                    </div>
+
 
                                         <fieldset class="row g-2 mb-3">
                                             <legend class="form-label fs-6 mb-1">Expiration</legend>
                                             <div class="col-6">
                                                 <label class="visually-hidden" for="cardMonthSelect">Month</label>
                                                 <select class="form-select" id="cardMonthSelect"
-                                                    autocomplete="cc-exp-month" required>
+                                                    autocomplete="off" required>
                                                     <option value="">Month</option>
                                                 </select>
                                             </div>
                                             <div class="col-6">
                                                 <label class="visually-hidden" for="cardYearSelect">Year</label>
                                                 <select class="form-select" id="cardYearSelect"
-                                                    autocomplete="cc-exp-year" required>
+                                                    autocomplete="off" required>
                                                     <option value="">Year</option>
                                                 </select>
                                             </div>

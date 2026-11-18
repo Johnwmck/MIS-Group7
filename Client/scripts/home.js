@@ -277,7 +277,7 @@ async function refreshHomePage() {
         renderGenreRows();
         try {
             renderBestSellers(getCustomerBestSellers(
-                await loadOrdersFromApi(), bookList, BOOKS_PER_ROW
+                [{ items: await fetch('/api/orders/best-sellers').then(r => { if (!r.ok) throw new Error('Rankings unavailable'); return r.json(); }) }], bookList, BOOKS_PER_ROW
             ));
             customerBestSellersEmpty.textContent = 'No best-selling books are available yet.';
         } catch (error) {
@@ -311,3 +311,13 @@ window.addEventListener('pageshow', async function () {
 
     updateCartCount();
 });
+
+fetch('/api/promotions').then(r => { if (!r.ok) throw new Error(); return r.json(); }).then(data => {
+    const host = document.getElementById('currentOfferList');
+    data.promotions.forEach(p => {
+        const text = document.createElement('p');
+        text.textContent = p.name + ': ' + p.percentOff + '% off ' + p.bookIds.length + ' selected books' +
+            (p.membersOnly ? ' for members' : ' for everyone') + ', until ' + new Date(p.endsAt).toLocaleString() + '.';
+        host.append(text);
+    });
+}).catch(() => { document.getElementById('currentOfferList').textContent = 'Current offers could not be loaded. Refresh to retry.'; });

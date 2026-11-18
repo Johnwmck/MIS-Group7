@@ -5,6 +5,10 @@ namespace Team7Books.Api.Models;
 // Customer input only. IDs, dates, titles, and totals are assigned by the server.
 public class CreateOrderRequest
 {
+    public Guid RequestKey { get; set; }
+    public int RedeemPoints { get; set; }
+    public decimal? ExpectedTotal { get; set; }
+    public int? ExpectedCustomerId { get; set; }
     [Required]
     public string CustomerName { get; set; } = string.Empty;
 

@@ -1,134 +1,33 @@
-// Shared internal-page routing, session validation, and UI role checks.
-// Browser-only prototype guard; this does not authorize requests to the API.
-
-// --- Role routing and session validation ---
-
-function getInternalHomePage(role) {
-    return role === 'Admin'
-        ? 'admin.html'
-        : 'employee.html';
-}
-
-function getValidatedInternalSession() {
-    const session = loadInternalSession();
-
-    if (!session) {
-        return null;
-    }
-
-    const users = loadInternalUsersFromStorage();
-
-    // Re-check persistent account state so a disabled or deleted user cannot
-    // keep using an older session.
-    const currentUser = users.find(function (user) {
-        return user.id === session.userId &&
-            user.username === session.username &&
-            user.role === session.role &&
-            user.active;
-    });
-
-    if (!currentUser) {
-        clearInternalSession();
-        return null;
-    }
-
-    return session;
-}
-
-function requireInternalRole(requiredRole) {
-    const session = getValidatedInternalSession();
-
-    if (!session) {
-        window.location.replace('login.html');
-        return null;
-    }
-
-    if (!userHasRequiredRole(session, requiredRole)) {
-        window.location.replace(
-            getInternalHomePage(session.role)
-        );
-
-        return null;
-    }
-
-    return session;
-}
-
-// --- Protected-page initialization and logout ---
-
-function initializeInternalAccess(requiredRole) {
-    const session = requireInternalRole(requiredRole);
-
-    if (!session) {
-        return;
-    }
-
-    const currentUserName = document.getElementById(
-        'currentInternalUser'
-    );
-
-    const logoutButton = document.getElementById('logoutButton');
-    const adminNavItem = document.getElementById('adminNavItem');
-
-    if (currentUserName) {
-        currentUserName.textContent =
-            session.name + ' (' + session.role + ')';
-    }
-
-    if (adminNavItem) {
-        adminNavItem.classList.toggle(
-            'd-none',
-            session.role !== 'Admin'
-        );
-    }
-
-    if (logoutButton) {
-        logoutButton.addEventListener('click', function () {
-            clearInternalSession();
-            window.location.replace('login.html');
+// Navigation reflects the server session. Each privileged API also enforces its role.
+async function initializeInternalAccess(requiredRole) {
+    try {
+        const session = await getValidatedInternalSession();
+        if (!session) { window.location.replace('login.html'); return; }
+        if (!userHasRequiredRole(session, requiredRole)) { window.location.replace(getInternalHomePage(session.role)); return; }
+        const name = document.getElementById('currentInternalUser');
+        if (name) name.textContent = session.name + ' (' + session.role + ')';
+        document.getElementById('adminNavItem')?.classList.toggle('d-none', session.role !== 'Admin');
+        document.getElementById('logoutButton')?.addEventListener('click', async function () {
+            try { await clearInternalSession(); window.location.replace('login.html'); }
+            catch (error) { alert(error.message); }
         });
-    }
+    } catch (error) { document.getElementById('currentInternalUser').textContent = error.message; }
 }
-
-// Public pages show who is logged in: staff link to their portal, customers to
-// their account page (account.html), and everyone else sees Login. Internal
-// pages retain their existing account display and logout controls.
 async function refreshAccountNavigation() {
     if (document.getElementById('currentInternalUser')) return;
-    const links = document.querySelectorAll(
-        '.site-primary-nav a[data-account-link], .site-primary-nav a[href="login.html"]'
-    );
-    const session = getValidatedInternalSession();
-    let text = 'Login';
-    let href = 'login.html';
-    let customerLoggedIn = false;
-
-    if (session) {
-        text = session.name + ' (' + session.role + ')';
-        href = getInternalHomePage(session.role);
-    } else if (typeof loadCurrentCustomerFromApi === 'function') {
-        try {
+    let text = 'Login'; let href = 'login.html'; let member = false;
+    try {
+        const staff = await getValidatedInternalSession();
+        if (staff) { text = staff.name + ' (' + staff.role + ')'; href = getInternalHomePage(staff.role); }
+        else if (typeof loadCurrentCustomerFromApi === 'function') {
             const customer = await loadCurrentCustomerFromApi();
-            if (customer) {
-                text = getCustomerFullName(customer);
-                href = 'account.html';
-                customerLoggedIn = true;
-            }
-        } catch (error) {
-            // Keep showing Login if the API cannot be reached.
+            if (customer) { text = getCustomerFullName(customer); href = 'account.html'; member = true; }
         }
-    }
-
-    links.forEach(function (link) {
-        link.dataset.accountLink = 'true';
-        link.textContent = text;
-        link.href = href;
+    } catch (_) { /* Login remains available if the API is offline. */ }
+    document.querySelectorAll('.site-navbar a[data-account-link], .site-navbar a[href="login.html"], #siteFooter a[data-account-link]').forEach(link => {
+        link.dataset.accountLink = 'true'; link.textContent = text; link.href = href;
     });
-
-    // Customer-only links, such as Favorites in the footer.
-    document.querySelectorAll('[data-customer-only]').forEach(function (element) {
-        element.classList.toggle('d-none', !customerLoggedIn);
-    });
+    document.querySelectorAll('[data-customer-only]').forEach(element => element.classList.toggle('d-none', !member));
 }
 window.addEventListener('pageshow', refreshAccountNavigation);
-window.addEventListener('storage', refreshAccountNavigation);
+window.addEventListener('storage', event => { if (event.key === 'accountChanged') location.reload(); });

@@ -8,11 +8,13 @@ const CART_STORAGE_KEY = 'savedCart';
 // Cart entries store book IDs and quantities, then resolve current book data
 // from the catalog whenever the cart is displayed or purchased.
 function loadCartFromStorage() {
-    return JSON.parse(localStorage.getItem(CART_STORAGE_KEY)) || [];
+    const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
+    return Array.isArray(saved) ? saved : (saved.items || []);
 }
 
 function saveCartToStorage(cartItems) {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+    const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: cartItems, assistantReceipts: saved.assistantReceipts || {} }));
 }
 
 // --- Post-purchase cleanup of the current shared cart ---
@@ -147,3 +149,35 @@ function removeCartItem(bookId) {
     saveCartToStorage(remainingItems);
 }
 
+
+// Cart changes and action receipts share one localStorage write. A restored or retried
+// chat turn cannot add twice, even if navigation happens immediately after the write.
+async function applyAssistantCartActions(actions, requestId) {
+    const run = async () => {
+        const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
+        const receipts = saved.assistantReceipts || {};
+        if (receipts[requestId]) return receipts[requestId];
+        const books = await loadBooksFromApi();
+        // Re-read after the API call to preserve intervening manual additions.
+        const latest = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]');
+        if (latest.assistantReceipts?.[requestId]) return latest.assistantReceipts[requestId];
+        const cart = loadCartFromStorage();
+        const results = [], seen = new Set();
+        for (const action of actions) {
+            if (seen.has(action.bookId)) continue; seen.add(action.bookId);
+            const book = books.find(b => b.id === action.bookId);
+            const item = cart.find(i => i.bookId === action.bookId);
+            const quantity = (item?.quantity || 0) + action.quantity;
+            const error = getCartQuantityError(book, quantity);
+            if (error) { results.push('Could not add ' + (book?.title || 'this book') + ': ' + error); continue; }
+            if (item) item.quantity = quantity; else cart.push({ bookId: book.id, quantity });
+            results.push('Added ' + action.quantity + ' × ' + book.title + ' to your cart.');
+        }
+        const updated = { ...(latest.assistantReceipts || {}), [requestId]: results };
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ items: cart, assistantReceipts: updated }));
+        window.dispatchEvent(new Event('cartchanged'));
+        const count = document.getElementById('cartCount'); if (count) count.textContent = getCartItemCount(cart);
+        return results;
+    };
+    return navigator.locks ? navigator.locks.request('team7-cart', run) : run();
+}

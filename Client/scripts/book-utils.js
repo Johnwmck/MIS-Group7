@@ -64,9 +64,13 @@ function getBookPrice(book) {
 
 // Sale price with the regular price struck through. Numbers only, so safe as HTML.
 function formatBookPriceHtml(book) {
-    if (!isBookOnSale(book)) return currencyFormatter.format(book.price);
-    return `<span class="sale-price">${currencyFormatter.format(book.salePrice)}</span>
-        <s class="regular-price">${currencyFormatter.format(book.price)}</s>`;
+    const member = book.memberPrice != null && !book.memberEligible
+        ? `<small class="member-price-note d-block">Member price ${currencyFormatter.format(book.memberPrice)} · sign in</small>` : '';
+    const applied = book.memberOfferApplied ? '<small class="member-price-note d-block">Member offer applied</small>' : '';
+    const price = isBookOnSale(book)
+        ? `<span class="sale-price">${currencyFormatter.format(book.salePrice)}</span> <s class="regular-price">${currencyFormatter.format(book.price)}</s>`
+        : currencyFormatter.format(book.price);
+    return price + member + applied;
 }
 
 // "10% off" badge shown beside a sale price; empty when the book is not on sale.
@@ -74,7 +78,7 @@ function formatBookPriceHtml(book) {
 function formatSaleBadgeHtml(book) {
     if (!isBookOnSale(book)) return '';
     const percentOff = Math.round((1 - book.salePrice / book.price) * 100);
-    return ` <span class="badge promo-badge ms-1">${percentOff}% off</span>`;
+    return ` <span class="badge promo-badge ms-1 ${book.memberOfferApplied ? 'member-badge' : ''}">${book.memberOfferApplied ? 'Member · ' : 'Sale · '}${percentOff}% off</span>`;
 }
 
 // --- Stock display rules ---
@@ -111,3 +115,7 @@ function useCoverPlaceholder(event) {
 
 document.addEventListener('error', useCoverPlaceholder, true);
 document.addEventListener('load', useCoverPlaceholder, true);
+
+function escapeBookHtml(value) {
+    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}

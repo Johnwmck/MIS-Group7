@@ -4,6 +4,7 @@ using Team7Books.Api.Services;
 namespace Team7Books.Api.Controllers;
 
 // Local prototype only; replace with server authorization before deployment.
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 [ApiController]
 [Route("api/demo")]
 public class DemoController : ControllerBase

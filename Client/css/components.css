@@ -585,3 +585,18 @@
         padding: 0.85rem;
     }
 }
+
+/* Compact full-cover tiles and separate offer/stock colors. */
+.book-grid .card-img-top { height: 190px; aspect-ratio: auto; box-shadow: none; }
+.book-grid .card-text { font-size: .875rem; }
+.book-grid .book-price { font-size: 1rem; }
+.book-grid .card-title { min-height: 2.5em; }
+.book-card-actions { flex-wrap: wrap; gap: .35rem; }
+.member-price-note { color: #49368a; font-size: .875rem; font-weight: 600; }
+.promo-badge { background: #a51c30; color: #fff; font-size: .875rem; white-space: normal; margin-top: .25rem; }
+.member-badge { background: #49368a; }
+.membership-benefits { background: #eef0fa; border-left: 4px solid #49368a; padding: 1.25rem; border-radius: .5rem; }
+@media (max-width: 575px) { .book-grid .card-img-top { height: 160px; } .book-card-actions .quick-add-button { flex: 1; } }
+.assistant-form { flex-wrap: wrap; }
+.assistant-form input { min-width: 0; flex: 1 1 150px; }
+.assistant-cancel { font-size: .875rem; }

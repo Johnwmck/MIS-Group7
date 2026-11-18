@@ -6,6 +6,12 @@ namespace Team7Books.Api.Models;
 public class Order
 {
     public int Id { get; init; }
+    public Guid? RequestKey { get; init; }
+    public string? RequestFingerprint { get; init; }
+    public decimal RewardDiscount { get; init; }
+    public decimal PromotionSavings { get; init; }
+    public int PointsRedeemed { get; init; }
+    public int PointsEarned { get; init; }
     public DateTimeOffset Date { get; init; }
     public string CustomerName { get; init; } = string.Empty;
     public string CustomerEmail { get; init; } = string.Empty;

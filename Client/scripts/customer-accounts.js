@@ -43,16 +43,17 @@ function postCustomerRequest(path, body) {
 // --- Account actions ---
 
 // Creates the account and logs the new customer in.
-function registerCustomerInApi(details) {
-    return postCustomerRequest('register', details);
+async function registerCustomerInApi(details) {
+    const customer = await postCustomerRequest('register', details);
+    accountIdentityChanged(); return customer;
 }
 
 function logInCustomerInApi(email, password) {
-    return postCustomerRequest('login', { email: email, password: password });
+    return postCustomerRequest('login', { email: email, password: password }).then(customer => { accountIdentityChanged(); return customer; });
 }
 
 function logOutCustomerInApi() {
-    return postCustomerRequest('logout', {});
+    return postCustomerRequest('logout', {}).then(() => accountIdentityChanged());
 }
 
 // The signed-in customer's profile, or null when nobody is logged in.
@@ -136,4 +137,10 @@ function addFavoriteInApi(bookId) {
 
 function removeFavoriteInApi(bookId) {
     return sendCustomerRequest('DELETE', 'me/favorites/' + bookId);
+}
+
+function accountIdentityChanged() {
+    sessionStorage.removeItem('assistantHistory');
+    sessionStorage.removeItem('assistantPending');
+    localStorage.setItem('accountChanged', crypto.randomUUID());
 }

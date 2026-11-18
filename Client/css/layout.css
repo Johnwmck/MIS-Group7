@@ -272,3 +272,10 @@
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.65);
 }
+
+/* Long contact/account links wrap inside narrow footer columns. */
+.site-footer-links a { overflow-wrap: anywhere; }
+
+.site-navbar .navbar-nav { flex-wrap: wrap; max-width: 100%; }
+.site-navbar .nav-link { overflow-wrap: anywhere; }
+.site-footer .text-muted { color: rgba(255, 255, 255, .78) !important; }

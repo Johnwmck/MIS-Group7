@@ -27,7 +27,7 @@ function renderSiteFooter() {
                     <ul class="list-unstyled site-footer-links mb-0">
                         <li><a href="index.html">Home</a></li>
                         <li><a href="catalog.html">Catalog</a></li>
-                        <li class="d-none" data-customer-only><a href="favorites.html">Favorites</a></li>
+                        <li><a href="favorites.html">Favorites</a></li>
                         <li><a href="cart.html">Cart</a></li>
                     </ul>
                 </nav>
@@ -45,7 +45,7 @@ function renderSiteFooter() {
                 <nav class="col-12 col-md-4 col-lg-2" aria-label="Account">
                     <h2 class="site-footer-heading">Account</h2>
                     <ul class="list-unstyled site-footer-links mb-0">
-                        <li><a href="login.html">Login</a></li>
+                        <li><a href="login.html" data-account-link>Login</a></li>
                         <li><a href="signup.html">Create an Account</a></li>
                     </ul>
                 </nav>

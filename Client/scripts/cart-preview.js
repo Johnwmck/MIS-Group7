@@ -71,7 +71,7 @@
         quantityRow.className = 'd-flex align-items-center gap-2 small';
         const quantity = document.createElement('span');
         quantity.className = 'text-muted';
-        quantity.textContent = item.quantity + ' x ' + currencyFormatter.format(getBookPrice(book));
+        quantity.textContent = item.quantity + ' × ' + currencyFormatter.format(getBookPrice(book)) + (book.memberOfferApplied ? ' · Member price' : book.promotionName ? ' · Sale price' : '');
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
@@ -126,7 +126,7 @@
                 const book = books.find(function (book) { return book.id === item.bookId; });
                 return { bookId: item.bookId, quantity: item.quantity, price: getBookPrice(book) };
             }));
-            sessionStorage.removeItem('purchaseUncertain');
+            // An outstanding request retains its retry receipt until confirmed.
             window.location.href = 'checkout.html';
         } catch (error) {
             showPreviewMessage('Unable to start checkout. Saved selections are unchanged. Open the cart to retry.');

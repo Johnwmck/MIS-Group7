@@ -83,6 +83,8 @@ async function renderCart(extraMessages = []) {
                     text.append(title, author);
                     details.append(cover, text);
                     cell.appendChild(details);
+                } else if (index === 1) {
+                    cell.innerHTML = formatBookPriceHtml(book) + formatSaleBadgeHtml(book);
                 } else if (index === 2) {
                     cell.appendChild(createQuantityControls(item, book));
                 } else {
@@ -226,7 +228,7 @@ checkoutButton.addEventListener('click', async function () {
     });
 
     saveCheckoutState('cart', checkoutItems);
-    sessionStorage.removeItem('purchaseUncertain');
+    // An outstanding request retains its retry receipt until confirmed.
     window.location.href = 'checkout.html';
 });
 
@@ -239,3 +241,5 @@ window.addEventListener('pageshow', function (event) {
 // --- Page initialization ---
 
 renderCart();
+
+window.addEventListener('cartchanged', () => renderCart());

@@ -14,7 +14,6 @@ const paymentMethodSelect = document.getElementById('paymentMethodSelect');
 const newCardFields = document.getElementById('newCardFields');
 const cardNameInput = document.getElementById('cardNameInput');
 const cardNumberInput = document.getElementById('cardNumberInput');
-const cardBrandHint = document.getElementById('cardBrandHint');
 const cardMonthSelect = document.getElementById('cardMonthSelect');
 const cardYearSelect = document.getElementById('cardYearSelect');
 const saveCardGroup = document.getElementById('saveCardGroup');
@@ -30,6 +29,35 @@ let checkoutCustomer = null;
 let checkoutBusy = false;
 let checkoutReady = false;
 let purchaseUncertain = sessionStorage.getItem('purchaseUncertain') === 'true';
+let checkoutQuote = null;
+const rewardsSelect = document.getElementById('rewardsSelect');
+const retryPurchaseButton = document.getElementById('retryPurchaseButton');
+retryPurchaseButton.hidden = !sessionStorage.getItem('pendingPurchase');
+async function loadCheckoutQuote() {
+    const response = await fetch('/api/orders/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: checkoutState.items, redeemPoints: Number(rewardsSelect.value) || 0 }) });
+    const quote = await response.json();
+    if (!response.ok) throw new Error(quote.error || 'Unable to price checkout.');
+    checkoutQuote = quote;
+    const chosen = Number(rewardsSelect.value) || 0;
+    rewardsSelect.replaceChildren(new Option('Keep my points', '0'));
+    for (let points = 100; points <= quote.maxRedeemPoints; points += 100) rewardsSelect.append(new Option(points + ' points: $' + points / 20 + ' off', String(points)));
+    rewardsSelect.value = String(chosen);
+    document.getElementById('rewardsChoice').classList.toggle('d-none', !quote.customerId);
+    document.getElementById('checkoutRewardsBalance').textContent = quote.balance + ' available points';
+    document.getElementById('checkoutSavings').textContent = 'Offers save ' + currencyFormatter.format(quote.promotionSavings) +
+        ' · Rewards save ' + currencyFormatter.format(quote.rewardDiscount) + (quote.customerId ? ' · Earn ' + quote.pointsEarned + ' points after this order' : ' · Join free to earn points');
+    renderPurchaseTotals('checkout', quote);
+    return quote;
+}
+rewardsSelect.addEventListener('change', async () => {
+    if (checkoutBusy) return;
+    checkoutBusy = true; rewardsSelect.disabled = true;
+    placeOrderButton.disabled = true; checkoutReady = false;
+    try { await loadCheckoutQuote(); checkoutReady = !purchaseUncertain; showCheckoutMessage('Review your updated total before ordering.'); }
+    catch (error) { showCheckoutMessage(error.message); }
+    finally { checkoutBusy = false; rewardsSelect.disabled = false; placeOrderButton.disabled = !checkoutReady; }
+});
 
 // --- Validation and feedback ---
 
@@ -96,7 +124,7 @@ async function renderCheckoutReview() {
         const pricesChanged = reviewedItems.some(function (item, index) {
             return item.price !== checkoutState.items[index].price;
         });
-        saveCheckoutState(checkoutState.mode, reviewedItems);
+        saveCheckoutState(checkoutState.mode, reviewedItems, checkoutState.requestKey || crypto.randomUUID());
         checkoutState = loadCheckoutState();
 
         let total = 0;
@@ -105,7 +133,7 @@ async function renderCheckoutReview() {
             const subtotal = item.price * item.quantity;
             total += subtotal;
             const row = document.createElement('tr');
-            [book.title, item.quantity, currencyFormatter.format(item.price),
+            [book.title + (book.promotionName ? ' — ' + book.promotionName : ''), item.quantity, currencyFormatter.format(item.price),
             currencyFormatter.format(subtotal)].forEach(function (value) {
                 const cell = document.createElement('td');
                 cell.textContent = value;
@@ -113,12 +141,12 @@ async function renderCheckoutReview() {
             });
             checkoutItems.appendChild(row);
         });
-        renderPurchaseTotals('checkout', calculatePurchaseTotals(total));
+        await loadCheckoutQuote();
         checkoutContent.classList.remove('d-none');
         checkoutReady = !purchaseUncertain;
         placeOrderButton.disabled = !checkoutReady;
         showCheckoutMessage(purchaseUncertain
-            ? 'A previous purchase could not be confirmed. Check order history before retrying. Start a new checkout only after verifying it.'
+            ? 'A previous purchase could not be confirmed. Use Retry confirmation to safely recover its result.'
             : pricesChanged ? 'Prices were updated to the current catalog. Please review before placing your order.' : '');
     } catch (error) {
         showCheckoutMessage('Unable to load checkout. Your selection and cart are preserved. ' +
@@ -174,7 +202,7 @@ function readCheckoutPayment() {
     }
 
     const entry = readCardFields({
-        name: cardNameInput, number: cardNumberInput, month: cardMonthSelect, year: cardYearSelect
+        name: cardNameInput, number: cardNumberInput, cvv: document.getElementById('cardCvvInput'), month: cardMonthSelect, year: cardYearSelect
     });
     if (entry.error) return entry;
 
@@ -245,23 +273,34 @@ checkoutForm.addEventListener('submit', async function (event) {
     try {
         // Survives a refresh/navigation while the request is still in flight.
         sessionStorage.setItem('purchaseUncertain', 'true');
-        order = await createOrderInApi(Object.assign({
+        const request = Object.assign({
+            requestKey: checkoutState.requestKey,
+            redeemPoints: Number(rewardsSelect.value) || 0,
+            expectedTotal: checkoutQuote.total,
+            expectedCustomerId: checkoutQuote.customerId,
             customerName: customerInfo.name.trim(),
             customerEmail: customerInfo.email.trim(),
             items: checkoutState.items
-        }, paymentResult.payment));
+        }, paymentResult.payment);
+        sessionStorage.setItem('pendingPurchase', JSON.stringify({ request, mode: checkoutState.mode }));
+        order = await createOrderInApi(request);
     } catch (error) {
         purchaseUncertain = Boolean(error.uncertain);
         if (purchaseUncertain) sessionStorage.setItem('purchaseUncertain', 'true');
-        else sessionStorage.removeItem('purchaseUncertain');
+        else { sessionStorage.removeItem('purchaseUncertain'); sessionStorage.removeItem('pendingPurchase'); }
+        retryPurchaseButton.hidden = !purchaseUncertain;
         checkoutReady = false;
         checkoutBusy = false;
         showCheckoutMessage(error.message + (purchaseUncertain
-            ? ' Your selection is preserved. Do not submit again until you verify the result.'
+            ? ' Your selection is preserved. Retry confirmation safely using the same checkout request.'
             : ' Your selection is preserved. Refresh or return to review it again.'));
         return;
     }
 
+    await confirmPurchase(order, paymentResult.payment, checkoutState.mode);
+});
+
+async function confirmPurchase(order, payment, mode) {
     // --- Confirmed success and local cleanup ---
     // The server has committed. Cleanup failure must never look like purchase failure.
     checkoutReady = false;
@@ -269,21 +308,23 @@ checkoutForm.addEventListener('submit', async function (event) {
     document.getElementById('confirmationCustomerName').textContent = order.customerName;
     document.getElementById('confirmationOrderId').textContent = order.id;
     renderPurchaseTotals('confirmation', getOrderTotals(order));
+    document.getElementById('confirmationRewards').textContent = 'Offer savings: ' + currencyFormatter.format(order.promotionSavings || 0) + ' · Rewards redeemed: ' + currencyFormatter.format(order.rewardDiscount || 0) + ' · Points earned: ' + (order.pointsEarned || 0);
     // The typed card number is no longer needed.
     cardNumberInput.value = '';
     const confirmationPayment = document.getElementById('confirmationPayment');
     confirmationPayment.textContent = order.paymentMethod
-        ? 'Paid with ' + order.paymentMethod + '.' +
-            (paymentResult.payment.saveNewCard ? ' The card is saved to your account.' : '')
+        ? 'Demo card: ' + order.paymentMethod + '.' +
+            (payment.saveNewCard ? ' The card is saved to your account.' : '')
         : '';
     confirmationPayment.classList.toggle('d-none', !order.paymentMethod);
     document.getElementById('confirmationHistoryLink').classList.toggle('d-none', !order.customerId);
     orderConfirmation.classList.remove('d-none');
-    const mode = checkoutState.mode;
     checkoutState = null;
     try {
         clearCheckoutState();
         sessionStorage.removeItem('purchaseUncertain');
+        sessionStorage.removeItem('pendingPurchase');
+        retryPurchaseButton.hidden = true;
         if (mode === 'cart') subtractPurchasedCartItems(order.items);
         const reconciliation = mode === 'buyNow' ? await reconcileCart() : { messages: [] };
         showCheckoutMessage(reconciliation.messages.join(' '));
@@ -292,17 +333,25 @@ checkoutForm.addEventListener('submit', async function (event) {
     } finally {
         checkoutBusy = false;
     }
-});
+}
 
 // --- Page initialization and back-forward-cache restoration ---
 
 fillCardExpirationChoices(cardMonthSelect, cardYearSelect);
-watchCardBrand(cardNumberInput, cardBrandHint);
-renderCheckoutReview();
-loadCheckoutCustomer();
+loadCheckoutCustomer().then(renderCheckoutReview);
 window.addEventListener('pageshow', function (event) {
     if (event.persisted) {
         checkoutState = loadCheckoutState();
         renderCheckoutReview();
     }
+});
+
+retryPurchaseButton.addEventListener('click', async () => {
+    if (checkoutBusy) return;
+    const pending = JSON.parse(sessionStorage.getItem('pendingPurchase') || 'null');
+    if (!pending) return;
+    checkoutBusy = true; retryPurchaseButton.disabled = true;
+    try { const order = await createOrderInApi(pending.request); await confirmPurchase(order, pending.request, pending.mode); }
+    catch (error) { showCheckoutMessage(error.message + ' The same request is preserved for retry.'); }
+    finally { checkoutBusy = false; retryPurchaseButton.disabled = false; }
 });

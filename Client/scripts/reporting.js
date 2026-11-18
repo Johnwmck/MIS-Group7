@@ -140,7 +140,7 @@ function createOrderCard(order) {
     const customerEmail = order.customerEmail || 'Email not recorded';
 
     customer.textContent = customerName + ' - ' + customerEmail +
-        (order.paymentMethod ? ' - Paid with ' + order.paymentMethod : '');
+        (order.paymentMethod ? ' - Demo card: ' + order.paymentMethod : '');
     cardBody.appendChild(customer);
 
     const items = Array.isArray(order.items) ? order.items : [];
@@ -161,6 +161,10 @@ function createOrderCard(order) {
     orderTotal.textContent = formatPurchaseTotals(getOrderTotals(order));
 
     cardBody.appendChild(orderTotal);
+    const savings = document.createElement('p'); savings.className = 'text-end member-price-note';
+    savings.textContent = 'Offer savings: ' + currencyFormatter.format(order.promotionSavings || 0) + ' · Rewards used: ' + currencyFormatter.format(order.rewardDiscount || 0) +
+        ' · Points redeemed / earned: ' + (order.pointsRedeemed || 0) + ' / ' + (order.pointsEarned || 0);
+    cardBody.appendChild(savings);
 
     if (order.refund) {
         const refund = order.refund;
@@ -367,7 +371,7 @@ async function renderStats(books, { statsSummaryRow, lowStockList, bestSellersLi
     lowStockList.innerHTML = lowStockBooks.length
         ? lowStockBooks.map(function (book) {
             return `<li class="list-group-item d-flex justify-content-between">
-                <span class="low-stock-title">${book.title}</span>
+                <span class="low-stock-title">${escapeBookHtml(book.title)}</span>
                 <span class="text-muted">
                     ${isBookOutOfStock(book) ? 'Out of stock &middot; ' : ''}${book.inventory} left
                 </span>

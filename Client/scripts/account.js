@@ -52,7 +52,6 @@ const paymentList = document.getElementById('paymentList');
 const addCardForm = document.getElementById('addCardForm');
 const cardNameInput = document.getElementById('cardNameInput');
 const cardNumberInput = document.getElementById('cardNumberInput');
-const cardBrandHint = document.getElementById('cardBrandHint');
 const cardMonthSelect = document.getElementById('cardMonthSelect');
 const cardYearSelect = document.getElementById('cardYearSelect');
 const cardDefaultInput = document.getElementById('cardDefaultInput');
@@ -174,6 +173,8 @@ function createAccountOrderCard(order, now) {
     getOrderItems(order).forEach(function (item) {
         body.appendChild(createOrderItemRow(item));
     });
+    body.appendChild(createElement('p', 'member-price-note', 'Offer savings: ' + currencyFormatter.format(order.promotionSavings || 0) +
+        ' · Rewards used: ' + currencyFormatter.format(order.rewardDiscount || 0) + ' · Points earned: ' + (order.pointsEarned || 0)));
     const totals = getOrderTotals(order);
     body.appendChild(createTotalsBlock([
         ['Subtotal', currencyFormatter.format(totals.subtotal)],
@@ -181,7 +182,7 @@ function createAccountOrderCard(order, now) {
         ['Total', currencyFormatter.format(totals.total)]
     ]));
     if (order.paymentMethod) {
-        body.appendChild(createElement('p', 'text-muted small text-end mb-0 mt-2', 'Paid with ' + order.paymentMethod));
+        body.appendChild(createElement('p', 'text-muted small text-end mb-0 mt-2', 'Demo card: ' + order.paymentMethod));
     }
 
     const footer = createElement('div', 'card-footer d-flex flex-wrap justify-content-between align-items-center gap-2');
@@ -231,7 +232,7 @@ function createRefundReceiptCard(order) {
         ['Total refunded', currencyFormatter.format(refund.total)]
     ]));
     body.appendChild(createElement('p', 'text-muted small text-end mt-2 mb-3',
-        'Refunded to ' + (order.paymentMethod || 'your original payment method') + '.'));
+        'Demo refund recorded for ' + (order.paymentMethod || 'the original demo payment') + '. No money moves.'));
 
     const details = createElement('dl', 'row small mb-0');
     details.append(
@@ -298,6 +299,8 @@ async function refreshOrders() {
 
 function openRefundForm(order, type, trigger) {
     const isReturn = type === 'Return';
+    body.appendChild(createElement('p', 'member-price-note', 'Offer savings: ' + currencyFormatter.format(order.promotionSavings || 0) +
+        ' · Rewards used: ' + currencyFormatter.format(order.rewardDiscount || 0) + ' · Points earned: ' + (order.pointsEarned || 0)));
     const totals = getOrderTotals(order);
     refundTarget = { order: order, type: type, trigger: trigger, done: false };
 
@@ -306,7 +309,7 @@ function openRefundForm(order, type, trigger) {
         ? 'Why are you returning this order?'
         : 'Why are you cancelling this order?';
     refundSubmitButton.textContent = isReturn ? 'Submit Return' : 'Cancel Order';
-    refundSummary.textContent = 'You will be refunded ' + currencyFormatter.format(totals.total) +
+    refundSummary.textContent = 'Record a demo refund of ' + currencyFormatter.format(totals.total) +
         (totals.tax > 0 ? ', including ' + currencyFormatter.format(totals.tax) + ' sales tax,' : '') +
         ' to ' + (order.paymentMethod || 'your original payment method') + '.';
 
@@ -383,6 +386,7 @@ refundForm.addEventListener('submit', async function (event) {
             return order.id === updated.id ? updated : order;
         });
         renderOrders();
+        refreshRewards();
         showAlert(orderMessage, 'Order #' + updated.id + ' was ' +
             getOrderStatusLabel(updated).toLowerCase() + '. Your refund receipt ' +
             getRefundReceiptNumber(updated) + ' is now at the top of your order history.', 'success');
@@ -405,7 +409,7 @@ refundForm.addEventListener('submit', async function (event) {
 // Returns { card } to send, or { error, field } to fix.
 function readNewCardForm() {
     const result = readCardFields({
-        name: cardNameInput, number: cardNumberInput, month: cardMonthSelect, year: cardYearSelect
+        name: cardNameInput, number: cardNumberInput, cvv: document.getElementById('cardCvvInput'), month: cardMonthSelect, year: cardYearSelect
     });
     if (result.card) result.card.makeDefault = cardDefaultInput.checked;
     return result;
@@ -499,7 +503,6 @@ async function changePaymentMethods(request, successMessage) {
     }
 }
 
-watchCardBrand(cardNumberInput, cardBrandHint);
 
 addCardForm.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -519,7 +522,6 @@ addCardForm.addEventListener('submit', async function (event) {
         renderPaymentMethods();
         // Clear the form so the card number does not stay on screen.
         addCardForm.reset();
-        cardBrandHint.textContent = CARD_BRAND_HINT;
         showAlert(paymentMessage, describePaymentMethod(result.card) + ' was saved.', 'success');
     } catch (error) {
         if (redirectIfLoggedOut(error)) return;
@@ -624,6 +626,7 @@ async function initializeAccountPage() {
     accountContent.classList.remove('d-none');
     refreshOrders();
     refreshPaymentMethods();
+    refreshRewards();
 }
 
 fillCardExpirationChoices(cardMonthSelect, cardYearSelect);
@@ -633,3 +636,18 @@ initializeAccountPage();
 window.addEventListener('pageshow', function (event) {
     if (event.persisted) initializeAccountPage();
 });
+
+async function refreshRewards() {
+    try {
+        const rewards = await sendCustomerRequest('GET', 'me/rewards');
+        document.getElementById('rewardBalance').textContent = rewards.balance + ' points';
+        document.getElementById('rewardRules').textContent = rewards.rules;
+        const host = document.getElementById('rewardHistory'); host.replaceChildren();
+        if (!rewards.history.length) host.textContent = 'Your first successful member purchase starts your points history.';
+        rewards.history.forEach(entry => {
+            const line = document.createElement('p');
+            line.textContent = new Date(entry.date).toLocaleString() + ' · Order #' + entry.orderId + ' · ' + entry.kind + ': ' + (entry.points > 0 ? '+' : '') + entry.points + ' points';
+            host.append(line);
+        });
+    } catch (error) { document.getElementById('rewardBalance').textContent = error.message; }
+}

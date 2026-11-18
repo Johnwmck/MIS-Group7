@@ -16,31 +16,28 @@ let favoritesAvailable = false;
 let favoritesLoadError = null;
 
 // Moves favorites saved in this browser into the customer's account, once.
+let favoritesCustomer = null;
+function guestFavorites() {
+    try { const ids = JSON.parse(localStorage.getItem(LEGACY_FAVORITES_STORAGE_KEY) || '[]'); return Array.isArray(ids) ? [...new Set(ids.filter(Number.isInteger))] : []; }
+    catch (_) { return []; }
+}
 async function importLegacyFavorites() {
-    let legacyIds = [];
-    try {
-        legacyIds = JSON.parse(localStorage.getItem(LEGACY_FAVORITES_STORAGE_KEY)) || [];
-    } catch (error) {
-        legacyIds = [];
-    }
-
-    for (const bookId of legacyIds) {
-        if (!Number.isInteger(bookId) || favoriteBookIds.includes(bookId)) continue;
-        try {
-            favoriteBookIds = await addFavoriteInApi(bookId);
-        } catch (error) {
-            // Deleted books cannot be favorited; skip them.
-        }
-    }
-    localStorage.removeItem(LEGACY_FAVORITES_STORAGE_KEY);
+    const ids = guestFavorites();
+    if (!ids.length) return;
+    // One server transaction. Leave the guest list intact on any failed merge.
+    favoriteBookIds = await postCustomerRequest('me/favorites/merge', ids);
+    const remaining = guestFavorites().filter(id => !ids.includes(id));
+    if (remaining.length) localStorage.setItem(LEGACY_FAVORITES_STORAGE_KEY, JSON.stringify(remaining));
+    else localStorage.removeItem(LEGACY_FAVORITES_STORAGE_KEY);
 }
 
 async function loadFavorites() {
     favoritesLoadError = null;
     try {
         const customer = await loadCurrentCustomerFromApi();
-        favoritesAvailable = Boolean(customer);
-        favoriteBookIds = customer ? await loadFavoriteIdsFromApi() : [];
+        favoritesCustomer = customer;
+        favoritesAvailable = true;
+        favoriteBookIds = customer ? await loadFavoriteIdsFromApi() : guestFavorites();
         if (customer && localStorage.getItem(LEGACY_FAVORITES_STORAGE_KEY)) {
             await importLegacyFavorites();
         }
@@ -60,14 +57,18 @@ function isFavoriteBook(bookId) {
 }
 
 async function removeFavoriteBook(bookId) {
-    favoriteBookIds = await removeFavoriteInApi(bookId);
+    if (favoritesCustomer) favoriteBookIds = await removeFavoriteInApi(bookId);
+    else { favoriteBookIds = guestFavorites().filter(id => id !== bookId); localStorage.setItem(LEGACY_FAVORITES_STORAGE_KEY, JSON.stringify(favoriteBookIds)); }
     updateFavoriteDisplays();
 }
 
 async function toggleFavoriteBook(bookId) {
-    favoriteBookIds = isFavoriteBook(bookId)
-        ? await removeFavoriteInApi(bookId)
-        : await addFavoriteInApi(bookId);
+    if (favoritesCustomer) favoriteBookIds = isFavoriteBook(bookId) ? await removeFavoriteInApi(bookId) : await addFavoriteInApi(bookId);
+    else {
+        const ids = guestFavorites();
+        favoriteBookIds = ids.includes(bookId) ? ids.filter(id => id !== bookId) : [...ids, bookId];
+        localStorage.setItem(LEGACY_FAVORITES_STORAGE_KEY, JSON.stringify(favoriteBookIds));
+    }
 }
 
 // --- Reconciliation after catalog changes ---

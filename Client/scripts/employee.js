@@ -24,16 +24,16 @@ function renderInventory() {
         row.dataset.title = book.title.toLowerCase();
         row.innerHTML = `
             <td>
-                <img src="${book.image}" alt="${book.title}"
+                <img src="${escapeBookHtml(book.image)}" alt="${escapeBookHtml(book.title)}"
                     style="width: 40px; height: 55px; object-fit: contain;">
             </td>
-            <td class="inventory-title">${book.title}</td>
-            <td>${book.author}</td>
+            <td class="inventory-title">${escapeBookHtml(book.title)}</td>
+            <td>${escapeBookHtml(book.author)}</td>
             <td>
                 <div class="input-group input-group-sm inventory-quantity-control">
                     <input type="number" min="0"
                         class="form-control inventory-input" value="${book.inventory}"
-                        aria-label="Inventory for ${book.title}">
+                        aria-label="Inventory for ${escapeBookHtml(book.title)}">
                     <button type="button"
                         class="btn btn-outline-secondary update-inventory-btn">
                         Update

@@ -5,6 +5,7 @@ namespace Team7Books.Api.Models;
 public class Customer
 {
     public int Id { get; set; }
+    public Guid SessionStamp { get; set; } = Guid.NewGuid();
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     // Saved trimmed and lowercase, so sign-in ignores letter case.

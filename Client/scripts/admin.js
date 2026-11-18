@@ -121,12 +121,12 @@ function renderInventory() {
         row.dataset.title = book.title.toLowerCase();
         row.innerHTML = `
             <td>
-                <img src="${book.image}" alt="${book.title}"
+                <img src="${escapeBookHtml(book.image)}" alt="${escapeBookHtml(book.title)}"
                     style="width: 40px; height: 55px; object-fit: contain;">
             </td>
-            <td>${book.title}</td>
-            <td>${book.author}</td>
-            <td>${book.genre}</td>
+            <td>${escapeBookHtml(book.title)}</td>
+            <td>${escapeBookHtml(book.author)}</td>
+            <td>${escapeBookHtml(book.genre)}</td>
             <td>
                 <div class="input-group input-group-sm" style="max-width: 230px;">
                     <span class="input-group-text">$</span>

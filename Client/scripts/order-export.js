@@ -54,7 +54,7 @@ function buildOrderCsv(orders) {
             'Refund Total',
             'Refund Reason',
             'Refund Comments',
-            'Payment Method'
+            'Payment Method', 'Customer Account ID', 'Regular Unit Price', 'Promotion', 'Promotion Savings', 'Rewards Discount', 'Points Redeemed', 'Points Earned'
         ]
     ];
 
@@ -82,8 +82,8 @@ function buildOrderCsv(orders) {
             rows.push([
                 preserveExcelText(order.id),
                 formatOrderDate(order.date),
-                order.customerName || '',
-                order.customerEmail || '',
+                neutralizeSpreadsheetFormula(order.customerName || ''),
+                neutralizeSpreadsheetFormula(order.customerEmail || ''),
                 item ? item.bookId || '' : '',
                 item ? preserveExcelText(item.title) : '',
                 quantity,
@@ -99,7 +99,8 @@ function buildOrderCsv(orders) {
                 refund ? refund.total : '',
                 refund ? refund.reason : '',
                 refund ? neutralizeSpreadsheetFormula(refund.comments || '') : '',
-                order.paymentMethod || ''
+                order.paymentMethod || '', order.customerId || '', item?.regularPrice ?? item?.price ?? '',
+                neutralizeSpreadsheetFormula(item?.promotionName || ''), order.promotionSavings || 0, order.rewardDiscount || 0, order.pointsRedeemed || 0, order.pointsEarned || 0
             ]);
         });
     });

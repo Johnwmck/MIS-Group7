@@ -4,3 +4,12 @@ API/bin/
 API/obj/
 API/App_Data/
 .DS_Store
+
+.env
+.env.*
+!.env.example
+API/appsettings.Local.json
+tests/**/bin/
+tests/**/obj/
+tests/__pycache__/
+.test-artifacts/

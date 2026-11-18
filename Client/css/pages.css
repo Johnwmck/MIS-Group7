@@ -333,13 +333,9 @@
     margin-left: 0.35rem;
 }
 
-/* Ink rather than amber so it never reads as the (amber) out-of-stock badge. */
-.promo-badge {
-    background-color: var(--brand-ink);
-    color: #f2c14e;
-    font-size: 1rem;
-    letter-spacing: 0.04em;
-}
+/* Sale and member badges have distinct colors from stock indicators. */
+.promo-badge { background-color: #a51c30; color: #fff; font-size: .875rem; letter-spacing: .01em; }
+.promo-badge.member-badge { background-color: #49368a; color: #fff; }
 
 
 
@@ -543,3 +539,10 @@
     padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
 }
+
+.book-grid .card-img-top, .book-cover, .promo-cover {
+    background-image: url('../images/cover-placeholder.svg');
+    background-size: contain; background-position: center; background-repeat: no-repeat;
+}
+.promo-banner { padding: 2rem 0; }
+.promo-banner h1 { font-size: clamp(2.25rem, 4vw, 3.75rem); }

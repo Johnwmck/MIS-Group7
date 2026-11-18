@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Team7Books.Api.Models;
 using Team7Books.Api.Services;
 
@@ -9,14 +12,14 @@ namespace Team7Books.Api.Controllers;
 public class OrdersController : ControllerBase
 {
     // --- Purchase policy and shared store ---
-    private const decimal SalesTaxRate = 0.10m;
+    private const decimal SalesTaxRate = PricingService.TaxRate;
     private readonly BookstoreStore store;
 
     public OrdersController(BookstoreStore store) { this.store = store; }
 
     // --- Completed-order reads ---
 
-    [HttpGet]
+    [HttpGet, Authorize(Roles = "Admin,Employee")]
     public ActionResult<List<Order>> Get()
     {
         lock (store.SyncRoot)
@@ -25,23 +28,68 @@ public class OrdersController : ControllerBase
         }
     }
 
-    [HttpGet("{id:int}")]
+    [HttpGet("{id:int}"), Authorize]
     public ActionResult<Order> GetById(int id)
     {
         lock (store.SyncRoot)
         {
             var order = store.Orders.Find(order => order.Id == id);
-            return order is null
+            return order is null || (!User.IsInRole("Admin") && !User.IsInRole("Employee") && order.CustomerId != CustomerSession.Find(User, store.Customers)?.Id) || (!User.IsInRole("Admin") && !User.IsInRole("Employee") && order.CustomerId is null)
                 ? NotFound(new { error = "Order not found." })
                 : Ok(order);
         }
     }
 
+    [HttpGet("best-sellers")]
+    public IActionResult BestSellers()
+    {
+        lock(store.SyncRoot) return Ok(store.Orders.Where(o => o.Refund is null).SelectMany(o => o.Items)
+            .GroupBy(i => i.BookId).Select(g => new { bookId = g.Key, quantity = g.Sum(i => (long)i.Quantity) }).ToList());
+    }
+
+    [HttpPost("quote")]
+    public IActionResult Quote(QuoteRequest request)
+    {
+        if (request.Items is null || request.Items.Count is 0 or > 100 || request.Items.Any(i => i is null || i.Quantity is < 1 or > 1000) ||
+            request.Items.Select(i => i.BookId).Distinct().Count() != request.Items.Count)
+            return BadRequest(new { error = "Choose valid, distinct books and quantities." });
+        lock (store.SyncRoot)
+        {
+            var customer = CustomerSession.Find(User, store.Customers);
+            decimal merchandise = 0, regular = 0;
+            var lines = new List<object>();
+            foreach (var i in request.Items)
+            {
+                var b = store.Books.Find(b => b.Id == i.BookId);
+                if (b is null || !AssistantTools.IsPurchasable(b) || b.Inventory < i.Quantity)
+                    return Conflict(new { error = "A selected book is unavailable or exceeds stock. Return to your cart." });
+                var p = PricingService.Best(b, store.Promotions, customer is not null, DateTimeOffset.UtcNow);
+                var price = PricingService.Price(b, p);
+                if (b.Price > 1_000_000m || merchandise + price * i.Quantity > 1_000_000m)
+                    return BadRequest(new { error = "The demo checkout limit is $1,000,000 in merchandise." });
+                merchandise += price * i.Quantity; regular += b.Price * i.Quantity;
+                lines.Add(new { bookId = b.Id, quantity = i.Quantity, price, regularPrice = b.Price, promotionName = p?.Name });
+            }
+            var balance = customer is null ? 0 : PricingService.Balance(store.Rewards, customer.Id);
+            var max = PricingService.MaxRedemption(balance, merchandise);
+            if (request.RedeemPoints < 0 || request.RedeemPoints % 100 != 0 || request.RedeemPoints > max)
+                return Conflict(new { error = "That redemption exceeds the available balance or merchandise subtotal. Choose fewer points." });
+            var discount = request.RedeemPoints / 100 * 5m;
+            var subtotal = merchandise - discount;
+            var tax = PricingService.Money(subtotal * PricingService.TaxRate);
+            return Ok(new { items = lines, customerId = customer?.Id, balance, maxRedeemPoints = max, merchandiseSubtotal = merchandise,
+                promotionSavings = regular - merchandise, rewardDiscount = discount, subtotal, taxRate = PricingService.TaxRate, tax,
+                total = subtotal + tax, pointsEarned = customer is null ? 0 : (int)decimal.Floor(subtotal) });
+        }
+    }
     // --- All-or-nothing purchase submission ---
 
     [HttpPost]
     public ActionResult<Order> Create([FromBody] CreateOrderRequest request)
     {
+        if (request.RequestKey == Guid.Empty) return BadRequest(new { error = "A checkout request key is required." });
+        if (request.Items?.Count > 100 || request.Items?.Any(i => i.Quantity > 1000) == true)
+            return BadRequest(new { error = "Use at most 100 books and 1000 copies per book in one order." });
         // Annotations handle field shape; these checks cover cross-item rules.
         if (string.IsNullOrWhiteSpace(request.CustomerName) ||
             string.IsNullOrWhiteSpace(request.CustomerEmail) ||
@@ -59,16 +107,29 @@ public class OrdersController : ControllerBase
         {
             return BadRequest(new { error = "Choose a saved card or enter a card to pay." });
         }
-        if (request.NewCard is not null)
-        {
-            var cardError = PaymentMethodValidation.GetNewCardError(request.NewCard, DateTimeOffset.UtcNow);
-            if (cardError != "") return BadRequest(new { error = cardError });
-        }
 
         // Catalog reads, validation, inventory changes, and order insertion share
         // one lock with catalog CRUD. No partial purchase can become visible.
         lock (store.SyncRoot)
         {
+            var customer = CustomerSession.Find(User, store.Customers);
+            var fingerprint = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request)));
+            var prior = store.Orders.Find(o => o.RequestKey == request.RequestKey);
+            if (prior is not null)
+            {
+                if (prior.CustomerId != customer?.Id || prior.RequestFingerprint != fingerprint)
+                    return Conflict(new { error = "This checkout key already belongs to a different request. Review a new checkout." });
+                return Ok(prior);
+            }
+            // A confirmed retry above returns the original receipt even if the card expired since.
+            if (request.NewCard is not null)
+            {
+                var cardError = PaymentMethodValidation.GetNewCardError(request.NewCard, DateTimeOffset.UtcNow);
+                if (cardError != "") return BadRequest(new { error = cardError });
+            }
+            if (request.ExpectedCustomerId != customer?.Id)
+                return Conflict(new { error = "Your signed-in account changed. Refresh checkout before purchasing." });
+            var now = DateTimeOffset.UtcNow;
             var items = new List<OrderItem>();
             decimal total = 0;
             // Stage historical item snapshots without changing live inventory.
@@ -86,10 +147,13 @@ public class OrdersController : ControllerBase
                 if (entry.Quantity > book.Inventory)
                     return Conflict(new { error = $"{book.Title}: the requested quantity exceeds available stock." });
                 // Charge the promotional price when one applies.
-                var unitPrice = book.SalePrice ?? book.Price;
+                var promotion = PricingService.Best(book, store.Promotions, customer is not null, now);
+                var unitPrice = PricingService.Price(book, promotion);
                 if (entry.Price != unitPrice)
                     return Conflict(new { error = $"{book.Title}: the price changed. Refresh checkout to review it." });
 
+                if (book.Price > 1_000_000m || total + unitPrice * entry.Quantity > 1_000_000m)
+                    return BadRequest(new { error = "The demo checkout limit is $1,000,000 in merchandise." });
                 try { total += unitPrice * entry.Quantity; }
                 catch (OverflowException)
                 {
@@ -100,6 +164,8 @@ public class OrdersController : ControllerBase
                     BookId = book.Id,
                     Title = book.Title,
                     Price = unitPrice,
+                    RegularPrice = book.Price,
+                    PromotionName = promotion?.Name,
                     Quantity = entry.Quantity
                 });
             }
@@ -107,7 +173,6 @@ public class OrdersController : ControllerBase
             // Orders placed while logged in belong to that account. A saved card
             // must belong to the same account; only a logged-in customer can
             // save the card typed at checkout.
-            var customer = CustomerSession.Find(User, store.Customers);
             if (request.SaveNewCard && customer is null)
                 return BadRequest(new { error = "Log in to save a card to your account." });
 
@@ -138,12 +203,16 @@ public class OrdersController : ControllerBase
 
             // Round tax once on the full subtotal, not per item. Save the result
             // with the order so future policy changes cannot rewrite history.
+            var balance = customer is null ? 0 : PricingService.Balance(store.Rewards, customer.Id);
+            if (request.RedeemPoints < 0 || request.RedeemPoints % 100 != 0 || request.RedeemPoints > PricingService.MaxRedemption(balance, total))
+                return Conflict(new { error = "Review your rewards: use whole 100-point increments within your available balance and merchandise subtotal." });
+            var rewardDiscount = request.RedeemPoints / 100 * 5m;
             decimal subtotal;
             decimal tax;
             decimal grandTotal;
             try
             {
-                subtotal = decimal.Round(total, 2, MidpointRounding.AwayFromZero);
+                subtotal = PricingService.Money(total - rewardDiscount);
                 tax = decimal.Round(subtotal * SalesTaxRate, 2, MidpointRounding.AwayFromZero);
                 grandTotal = subtotal + tax;
             }
@@ -151,9 +220,18 @@ public class OrdersController : ControllerBase
             {
                 return BadRequest(new { error = "The order total is too large." });
             }
+            if (request.ExpectedTotal != grandTotal)
+                return Conflict(new { error = "The total changed. Refresh checkout to review current discounts and tax." });
+            var earned = customer is null ? 0 : (int)Math.Min(int.MaxValue, decimal.Floor(subtotal));
             var order = new Order
             {
                 Id = store.NextOrderId,
+                RequestKey = request.RequestKey,
+                RequestFingerprint = fingerprint,
+                RewardDiscount = rewardDiscount,
+                PromotionSavings = items.Sum(i => ((i.RegularPrice ?? i.Price) - i.Price) * i.Quantity),
+                PointsRedeemed = request.RedeemPoints,
+                PointsEarned = earned,
                 Date = DateTimeOffset.UtcNow,
                 CustomerName = request.CustomerName.Trim(),
                 CustomerEmail = request.CustomerEmail.Trim(),
@@ -169,6 +247,11 @@ public class OrdersController : ControllerBase
             // Admin/Employee views opened before this purchase.
             var candidate = store.CreateSnapshot();
             candidate.Orders.Add(order);
+            if (customer is not null)
+            {
+                candidate.Rewards.Add(new(customer.Id, order.Id, "Redeem", -request.RedeemPoints, now));
+                candidate.Rewards.Add(new(customer.Id, order.Id, "Earn", earned, now));
+            }
             foreach (var item in items)
             {
                 var purchasedBook = candidate.Books.Find(book => book.Id == item.BookId)!;
@@ -187,3 +270,5 @@ public class OrdersController : ControllerBase
         }
     }
 }
+
+public record QuoteRequest(List<CartSelection> Items, int RedeemPoints);

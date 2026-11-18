@@ -55,7 +55,7 @@ public class CustomerAccountController : ControllerBase
     }
 
     [HttpPost("password")]
-    public IActionResult ChangePassword([FromBody] ChangePasswordRequest request)
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
         var error = CustomerValidation.GetPasswordError(request.NewPassword);
         if (error != "") return BadRequest(new { error });
@@ -75,6 +75,7 @@ public class CustomerAccountController : ControllerBase
             return BadRequest(new { error = "Your current password is incorrect." });
         }
         var newHash = passwordHasher.HashPassword(customer, request.NewPassword!);
+        Customer updated;
 
         lock (store.SyncRoot)
         {
@@ -86,8 +87,11 @@ public class CustomerAccountController : ControllerBase
                 return Conflict(new { error = "Your password was just changed elsewhere. Refresh and try again." });
 
             saved.PasswordHash = newHash;
+            saved.SessionStamp = Guid.NewGuid();
             store.Commit(candidate);
+            updated = saved;
         }
+        await CustomerSession.SignInAsync(HttpContext, updated);
         return NoContent();
     }
 
@@ -149,6 +153,11 @@ public class CustomerAccountController : ControllerBase
             }
 
             order.Refund = OrderRefundPolicy.Create(order, request, now);
+            if (order.RequestKey.HasValue)
+            {
+                candidate.Rewards.Add(new(customer.Id, order.Id, "RefundEarn", -order.PointsEarned, now));
+                candidate.Rewards.Add(new(customer.Id, order.Id, "RefundRedeem", order.PointsRedeemed, now));
+            }
             store.Commit(candidate);
             return Ok(order);
         }
@@ -282,6 +291,33 @@ public class CustomerAccountController : ControllerBase
         }
     }
 
+    [HttpGet("rewards")]
+    public IActionResult Rewards()
+    {
+        lock (store.SyncRoot)
+        {
+            var customer = CustomerSession.Find(User, store.Customers);
+            if (customer is null) return NotLoggedIn();
+            return Ok(new { balance = PricingService.Balance(store.Rewards, customer.Id), rules = PricingService.RewardsRule,
+                history = store.Rewards.Where(e => e.CustomerId == customer.Id).OrderByDescending(e => e.Date).ToList() });
+        }
+    }
+    [HttpPost("favorites/merge")]
+    public IActionResult MergeFavorites([FromBody] List<int> ids)
+    {
+        if (ids is null || ids.Count > CustomerValidation.MaxFavorites || ids.Any(id => id <= 0)) return BadRequest(new { error = "Invalid favorite list." });
+        lock (store.SyncRoot)
+        {
+            var state = store.CreateSnapshot();
+            var customer = CustomerSession.Find(User, state.Customers);
+            if (customer is null) return NotLoggedIn();
+            var merged = customer.FavoriteBookIds.Concat(ids).Distinct().Where(id => state.Books.Any(b => b.Id == id)).ToList();
+            if (merged.Count > CustomerValidation.MaxFavorites) return BadRequest(new { error = "Favorites limit reached. Guest favorites remain in this browser." });
+            customer.FavoriteBookIds = merged;
+            store.Commit(state);
+            return Ok(merged);
+        }
+    }
     // --- Helpers ---
 
     // Saved favorites whose books are still in the catalog (inactive books stay).

@@ -13,6 +13,11 @@ public sealed class BookstoreStore : IDisposable
     private readonly string seedPath;
     private readonly FileStream ownership;
     private BookstoreState state;
+    private readonly IConfiguration configuration;
+    private readonly bool development;
+    public List<Promotion> Promotions => state.Promotions;
+    public List<RewardEntry> Rewards => state.Rewards;
+    public List<StaffAccount> Staff => state.Staff;
     public object SyncRoot { get; } = new();
     public List<Book> Books => state.Books;
     public List<Order> Orders => state.Orders;
@@ -26,6 +31,8 @@ public sealed class BookstoreStore : IDisposable
 
     public BookstoreStore(IWebHostEnvironment environment, IConfiguration configuration)
     {
+        this.configuration = configuration;
+        development = environment.IsDevelopment();
         statePath = Path.GetFullPath(configuration["Bookstore:StatePath"] ??
             Path.Combine(environment.ContentRootPath, "App_Data", "bookstore-state.json"));
         seedPath = Path.GetFullPath(configuration["Bookstore:SeedPath"] ??
@@ -37,10 +44,17 @@ public sealed class BookstoreStore : IDisposable
             if (File.Exists(statePath))
             {
                 var savedJson = File.ReadAllText(statePath);
+                using (var document = JsonDocument.Parse(savedJson))
+                {
+                    if (document.RootElement.TryGetProperty("version", out var version) && version.GetInt32() == 2)
+                        foreach (var name in new[] { "customers", "promotions", "rewards", "staff", "nextCustomerId", "nextPromotionId", "nextStaffId" })
+                            if (!document.RootElement.TryGetProperty(name, out _)) throw new InvalidDataException("Saved bookstore state is missing a version 2 field. It was not reset.");
+                }
                 state = JsonSerializer.Deserialize<BookstoreState>(savedJson, json)
                     ?? throw new InvalidDataException("Saved bookstore state is empty.");
                 SavedStateValidation.Validate(state);
-                if (CatalogMetadataMigration.Apply(state, savedJson, seedPath))
+                var migrated = StateMigration.Apply(state, configuration, development);
+                if (CatalogMetadataMigration.Apply(state, savedJson, seedPath) | migrated)
                 {
                     SavedStateValidation.Validate(state);
                     WriteState(state);
@@ -49,6 +63,7 @@ public sealed class BookstoreStore : IDisposable
             else
             {
                 state = SeedCatalog.Load(seedPath);
+                StateMigration.Apply(state, configuration, development);
                 SavedStateValidation.Validate(state);
                 WriteState(state);
             }
@@ -78,7 +93,15 @@ public sealed class BookstoreStore : IDisposable
 
     public void Reset()
     {
-        lock (SyncRoot) { Commit(SeedCatalog.Load(seedPath)); }
+        lock (SyncRoot)
+        {
+            var clean = SeedCatalog.Load(seedPath);
+            StateMigration.Apply(clean, configuration, development, createStaff: false);
+            // Staff identities remain so the authorized operator stays signed in.
+            clean.Staff = CreateSnapshot().Staff;
+            clean.NextStaffId = state.NextStaffId;
+            Commit(clean);
+        }
     }
 
     // --- Atomic disk persistence ---

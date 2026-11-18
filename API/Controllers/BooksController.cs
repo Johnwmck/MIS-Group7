@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Team7Books.Api.Models;
 using Team7Books.Api.Services;
 
@@ -44,6 +45,7 @@ public class BooksController : ControllerBase
     // Each mutation uses a detached candidate; Commit saves before publishing.
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public ActionResult<Book> Create([FromBody] Book newBook)
     {
         newBook.Isbn = CatalogValidation.NormalizeIsbn(newBook.Isbn).ToUpperInvariant();
@@ -59,6 +61,8 @@ public class BooksController : ControllerBase
             if (store.NextBookId == int.MaxValue)
                 return BadRequest(new { error = "No further book IDs are available." });
             var candidate = store.CreateSnapshot();
+            newBook.SalePrice = null; newBook.MemberPrice = null; newBook.PromotionName = null;
+            newBook.MemberEligible = false; newBook.MemberOfferApplied = false;
             newBook.Id = candidate.NextBookId++;
             newBook.Revision = Guid.NewGuid();
             candidate.Books.Add(newBook);
@@ -73,6 +77,7 @@ public class BooksController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin,Employee")]
     public ActionResult<Book> Update(int id, [FromBody] Book updatedBook)
     {
         if (id != updatedBook.Id)
@@ -102,6 +107,18 @@ public class BooksController : ControllerBase
             if (updatedBook.Revision != store.Books[index].Revision)
                 return Conflict(new { error = "This book changed since you opened it. Refresh and reopen the edit form before saving." });
 
+            if (!User.IsInRole("Admin"))
+            {
+                // Employees can adjust inventory/availability only, regardless of posted fields.
+                var existing = store.Books[index];
+                existing = System.Text.Json.JsonSerializer.Deserialize<Book>(System.Text.Json.JsonSerializer.Serialize(existing))!;
+                existing.Inventory = updatedBook.Inventory;
+                existing.ManualStockOverride = updatedBook.ManualStockOverride;
+                existing.Status = updatedBook.Status;
+                updatedBook = existing;
+            }
+            updatedBook.SalePrice = null; updatedBook.MemberPrice = null; updatedBook.PromotionName = null;
+            updatedBook.MemberEligible = false; updatedBook.MemberOfferApplied = false;
             var candidate = store.CreateSnapshot();
             updatedBook.Revision = Guid.NewGuid();
             candidate.Books[index] = updatedBook;
@@ -112,6 +129,7 @@ public class BooksController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public IActionResult Delete(int id)
     {
         lock (store.SyncRoot)
@@ -125,6 +143,12 @@ public class BooksController : ControllerBase
 
             var candidate = store.CreateSnapshot();
             candidate.Books.RemoveAll(book => book.Id == id);
+            foreach (var promotion in candidate.Promotions.Where(p => p.BookIds.Contains(id)))
+            {
+                promotion.BookIds.Remove(id);
+                if (promotion.BookIds.Count == 0) promotion.Active = false;
+                promotion.Revision = Guid.NewGuid();
+            }
             store.Commit(candidate);
 
             return NoContent();
@@ -133,23 +157,6 @@ public class BooksController : ControllerBase
 
     // --- Response snapshots ---
     // Responses are detached from mutable inventory before the lock is released.
-    private static Book CopyBook(Book book) => new()
-    {
-        Id = book.Id,
-        Revision = book.Revision,
-        Isbn = book.Isbn,
-        Title = book.Title,
-        Author = book.Author,
-        Genre = book.Genre,
-        Price = book.Price,
-        Inventory = book.Inventory,
-        Status = book.Status,
-        Image = book.Image,
-        Description = book.Description,
-        AuthorBio = book.AuthorBio,
-        ManualStockOverride = book.ManualStockOverride,
-        SeriesName = book.SeriesName,
-        SeriesOrder = book.SeriesOrder
-    };
-
+    private Book CopyBook(Book book) => PricingService.View(book, store.Promotions,
+        CustomerSession.Find(User, store.Customers) is not null, DateTimeOffset.UtcNow);
 }

@@ -5,8 +5,7 @@ using Team7Books.Api.Services;
 namespace Team7Books.Api.Controllers;
 
 // Customer-facing assistant endpoints used by scripts/assistant.js and help.html.
-// No authentication: the assistant only reads public catalog data, and order
-// lookups require the order's email, which is checked in AssistantTools.
+// Account tools derive identity from the validated cookie, never model arguments.
 [ApiController]
 [Route("api/assistant")]
 public class AssistantController : ControllerBase
@@ -20,10 +19,10 @@ public class AssistantController : ControllerBase
 
     // --- Chat turn ---
 
-    [HttpPost("chat")]
+    [HttpPost("chat"), RequestSizeLimit(100000)]
     public async Task<ActionResult<AssistantReply>> Chat([FromBody] AssistantChatRequest request, CancellationToken cancellation)
     {
-        var messages = request?.Messages;
+        var messages = request.Messages;
         if (messages is null || messages.Count == 0)
             return BadRequest(new { error = "At least one message is required." });
         if (messages.Count > MaxMessages)
@@ -35,14 +34,17 @@ public class AssistantController : ControllerBase
         if (messages[^1].Role != "user" || string.IsNullOrWhiteSpace(messages[^1].Content))
             return BadRequest(new { error = "The last message must be a non-empty customer message." });
 
-        return Ok(await assistant.RespondAsync(messages, cancellation));
+        if (request.RequestId == Guid.Empty || request.Cart is null || request.Cart.Count > 100 ||
+            request.Cart.Any(i => i is null || i.BookId < 1 || i.Quantity < 1 || i.Quantity > 1000))
+            return BadRequest(new { error = "Invalid conversation request ID or cart context." });
+        try { return Ok(await assistant.RespondAsync(request, cancellation)); }
+        catch (ModelFailure error) { return StatusCode(error.Status, new { error = error.Message, code = error.Code }); }
     }
 
     // --- Widget status badge ---
 
     [HttpGet("status")]
-    public async Task<ActionResult<AssistantStatus>> Status(CancellationToken cancellation) =>
-        Ok(await assistant.GetStatusAsync(cancellation));
+    public ActionResult<AssistantStatus> Status() => Ok(assistant.GetStatus());
 
     // --- FAQ content for help.html ---
 

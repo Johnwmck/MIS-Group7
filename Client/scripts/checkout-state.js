@@ -4,9 +4,10 @@ const CHECKOUT_STORAGE_KEY = 'checkoutState';
 
 // --- Temporary checkout state ---
 
-function saveCheckoutState(mode, items) {
+function saveCheckoutState(mode, items, requestKey = crypto.randomUUID()) {
     const checkoutState = {
         mode: mode,
+        requestKey,
         items: items.map(function (item) {
             return {
                 bookId: item.bookId,

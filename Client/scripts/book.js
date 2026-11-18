@@ -82,7 +82,7 @@ function getSimilarBooks(book, books) {
 
     return books.filter(function (other) {
         return other.id !== book.id && other.status === 'Active' &&
-            !isBookOutOfStock(other) && getMatchRank(other) > 0;
+            (getMatchRank(other) === 3 || !isBookOutOfStock(other)) && getMatchRank(other) > 0;
     }).sort(function (a, b) {
         if (getMatchRank(a) !== getMatchRank(b)) {
             return getMatchRank(b) - getMatchRank(a);
@@ -137,7 +137,9 @@ function createSimilarBookCard(book) {
     actions.className = 'book-card-actions justify-content-between';
     actions.append(price, createFavoriteButton(book));
 
-    body.append(title, author, actions);
+    const availability = document.createElement('p'); availability.className = 'card-text';
+    availability.textContent = (book.seriesOrder == null ? '' : 'Reading order ' + book.seriesOrder + ' · ') + getCustomerAvailability(book);
+    body.append(title, author, availability, actions);
     card.append(cover, body);
     col.appendChild(card);
     return col;
@@ -149,7 +151,13 @@ function renderSimilarBooks(book, books) {
 
     container.innerHTML = '';
 
-    similarBooks.forEach(function (similarBook) {
+    const series = similarBooks.filter(other => book.seriesName && other.seriesName === book.seriesName);
+    const others = similarBooks.filter(other => !series.includes(other));
+    document.getElementById('similarBooksHeading').textContent = series.length ? 'Continue ' + book.seriesName + ' · reading order' : 'Similar Books';
+    [...series, ...others].forEach(function (similarBook, index) {
+        if (series.length && index === series.length) {
+            const heading = document.createElement('h3'); heading.className = 'h4 w-100 mt-4'; heading.textContent = 'More you might enjoy'; container.append(heading);
+        }
         container.appendChild(createSimilarBookCard(similarBook));
     });
 
@@ -239,7 +247,7 @@ buyNowButton.addEventListener('click', async function () {
             price: getBookPrice(latestBook)
         }]);
 
-        sessionStorage.removeItem('purchaseUncertain');
+        // An outstanding request retains its retry receipt until confirmed.
         window.location.href = 'checkout.html';
     } catch (error) {
         showCartToast('Unable to start checkout. ' + error.message, 'warning');

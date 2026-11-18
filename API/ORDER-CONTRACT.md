@@ -1,105 +1,69 @@
-# Server checkout contract
+# Checkout and persistence contract
 
-Phases 3–6 are implemented: request models, atomic server purchasing, connected
-checkout, and server-backed order history and reporting.
+`POST /api/orders/quote` takes `{items: [{bookId, quantity}], redeemPoints}` and
+returns authoritative current unit prices, account identity, available balance,
+maximum redeemable points, promotion savings, reward discount, taxable subtotal,
+10% tax, total, and expected earnings. No client price controls the quote.
 
-## Purchase request
-
-`POST /api/orders` accepts the same request for cart and Buy Now checkout:
-
-```json
-{
-  "customerName": "Demo Customer",
-  "customerEmail": "customer@example.com",
-  "items": [
-    { "bookId": 1, "quantity": 2, "price": 14.99 }
-  ]
-}
-```
-
-Payment is required: send exactly one of `"paymentMethodId"` (a saved card of
-the logged-in customer; it must belong to that account and not be expired,
-otherwise HTTP 409) or `"newCard"` (`brand`, `last4`, `expMonth`, `expYear`,
-`nameOnCard`; never the full number; validated like a card saved on the account
-page). Neither or both returns HTTP 400. A logged-in customer may add
-`"saveNewCard": true` to save the typed card to their account in the same commit
-as the order; guests get HTTP 400 for that. The server links the order to the
-logged-in account from the login cookie, never from the request body.
-
-`CreateOrderRequest` and `OrderItemRequest` describe this input. `price` is the
-unit price displayed during review, not permission to set the sale price. It is
-required, including for free books. No client total, title, order ID, or date is
-used. Cart mode is a browser concern and is not part of the transaction.
-
-## Validation and transaction rules
-
-- Require a nonblank customer name and a valid, nonblank email; trim both for storage.
-- Require a nonempty item list, no null entries, positive integer book IDs and
-  quantities, and a supplied nonnegative price with at most two decimal places.
-- Reject duplicate book IDs rather than purchasing their combined quantities.
-- Require every book to exist, be Active, have positive inventory, and not have
-  `manualStockOverride` set to `true` (the existing forced-out-of-stock rule).
-  A `false` override never permits buying more than actual inventory.
-- Require each quantity to fit current inventory.
-- Require the reviewed price to equal the current effective price (sale price
-  when the promotion applies, otherwise regular price). Reject a price
-  change and require a fresh review; never silently charge a different amount.
-- Calculate subtotal from server effective unit prices using decimal arithmetic.
-  Add 10% tax, rounded once on that subtotal to cents with midpoint rounding away
-  from zero, and save subtotal/rate/tax/total. Reject arithmetic overflow without
-  changing state.
-- Validate all items, prepare the order, reduce inventory, and save the order
-  under one shared synchronization boundary with catalog mutations. A rejected
-  request changes neither inventory nor order history.
-
-Data annotations cover basic request fields; cross-item and catalog validation
-are enforced by OrdersController, which also rejects null item entries.
-
-## Completed order and errors
-
-Success returns HTTP 201 with the completed `Order` directly:
+`POST /api/orders` takes:
 
 ```json
 {
-  "id": 1,
-  "date": "2026-10-10T12:00:00+00:00",
+  "requestKey": "a-unique-UUID-created-once-for-this-checkout",
   "customerName": "Demo Customer",
   "customerEmail": "customer@example.com",
-  "items": [
-    { "bookId": 1, "title": "Harry Potter and the Sorcerer's Stone", "price": 14.99, "quantity": 2 }
-  ],
-  "subtotal": 29.98,
-  "taxRate": 0.10,
-  "tax": 3.00,
-  "total": 32.98
+  "items": [{ "bookId": 1, "quantity": 2, "price": 14.99 }],
+  "redeemPoints": 0,
+  "expectedTotal": 32.98,
+  "expectedCustomerId": null,
+  "newCard": {
+    "brand": "Visa", "last4": "4242", "expMonth": 12,
+    "expYear": 2035, "nameOnCard": "Demo Customer"
+  },
+  "saveNewCard": false
 }
 ```
 
-Orders also carry `customerId` (the logged-in account, or `null` for guests),
-`paymentMethod` (text such as `"Visa ending in 4242"`, or `null`), and `refund`
-(`null` until the customer returns or cancels the order within 30 days through
-`POST /api/customers/me/orders/{id}/refund`; then `type`, `reason`, `comments`,
-UTC `date`, and refunded `subtotal`, `tax`, and `total`, which always equal what
-the order charged). A refund restocks the books and never deletes the sale.
+The sample amounts are illustrative; obtain current values from the quote. Use an
+actual UUID for `requestKey`. Exactly one of `newCard` and `paymentMethodId` is required.
+A saved card must belong to the authenticated customer. Never send full card numbers.
 
-The server assigns increasing order IDs and UTC timestamps. Saved titles and
-prices remain unchanged after catalog edits or deletion. The camel-case fields
-match existing history, CSV, and sales helpers. `OrderItem` stores no redundant
-line total; reports calculate `price * quantity`.
+`expectedCustomerId` is only a stale-page guard; it grants no access. The server
+associates the order with the account from the validated cookie. Guest orders have
+no customer account association, even if their email later matches a registration.
 
-Malformed requests return HTTP 400 using ASP.NET validation problem details
-(`errors` and `title`). Transaction validation returns HTTP 400 with
-`{ "error": "A readable explanation." }`; catalog/stock/price conflicts return
-HTTP 409 with the same shape. Checkout handles both error formats and preserves
-the cart and checkout selection on failure. An unconfirmed result blocks further
-submission in that tab, including after refresh. Verify order history before
-deliberately starting another checkout.
+The API requires distinct existing book IDs, whole quantities within available stock,
+active books without manual out-of-stock status, and exact reviewed unit prices.
+Limits are 100 distinct books, 1000 copies per book, and $1,000,000 merchandise per
+checkout. Price or account changes require review. The server uses the best currently
+eligible public/member percentage offer, rounded per unit away from zero to cents.
+Reward redemption uses whole 100-point/$5 blocks bounded by the existing balance and
+merchandise. It reduces the taxable subtotal. Tax is 10%, rounded once, midpoint away
+from zero. Earnings are the floor of the discounted, after-redemption subtotal.
 
-`GET /api/orders` supplies reporting; `GET /api/orders/{id}` retrieves one order.
-Books and orders are persisted together in local JSON state; server restart
-preserves them. First startup imports the seed CSV. `POST /api/demo/reset`
-restores that catalog, clears orders, resets counters, and persists the result.
-Disk-save failure returns HTTP 503 without applying the proposed change.
-Browser login is not server authorization. These are local prototype endpoints, not production
-authentication or payment processing. Automatic purchase retries are not safe:
-this contract does not yet include idempotency keys.
+The order, item snapshots, optional saved card, inventory/revisions, next ID, and unique
+reward ledger entries commit together. A failed save returns 503 and changes neither
+the file nor live state. Completed orders retain original prices, promotion names,
+list prices, savings, points, subtotal, tax, and total regardless of later catalog edits.
+Pre-membership/pre-tax historical orders retain their original totals and earn no
+retroactive points. Whole-order prototype refunds atomically restock inventory, reverse
+awards, and restore redemptions without changing the original receipt.
+
+A first successful submission returns **201**. The saved UUID, request fingerprint,
+and authenticated owner make an identical retry return **200 with the original order**,
+even after restart or stock changes. Reusing a key with different content/identity
+returns **409**. UUIDs are generated using browser cryptographic randomness. Retain
+both the UUID and exact request until the response is confirmed. The UI's “Retry
+confirmation” resends that exact request after an ambiguous network failure; it never
+allocates a replacement key. Cart cleanup follows confirmation, subtracting only
+purchased quantities. A newly started checkout does not discard a pending retry receipt.
+
+Malformed input returns 400; stock, price, balance, account, and stale-update conflicts
+return 409. The client preserves selections on failures. It does not treat a lost
+response as proof that a purchase failed.
+
+Order collection/report reads require Employee or Admin. A single-order read requires
+staff authorization or the owning customer session. Public best-seller data contains
+book IDs and aggregate quantities only. The customer `/api/customers/me/orders` route
+returns only their own orders. Reset requires Admin and preserves staff accounts while
+clearing purchase/member state and restoring the seed catalog and default offers.

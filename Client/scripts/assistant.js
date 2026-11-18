@@ -1,7 +1,7 @@
 // Customer assistant chat: the floating "Ask us" widget on customer pages and
 // the full-page chat plus FAQ list on help.html. All answers come from
 // getAssistantResponse(), which posts the transcript to /api/assistant/chat;
-// the server decides whether a local model or the scripted bot replies.
+// the server streams the MIS provider and returns only complete, validated replies.
 // Browser-side actions the server asks for (add to cart, open a page) run
 // here. Depends on cart-state.js and book-utils.js. Does not use Bootstrap JS.
 
@@ -11,28 +11,30 @@ const ASSISTANT_MAX_TURNS = 40;
 
 const ASSISTANT_SUGGESTIONS = [
     'Recommend a fantasy book under $15',
-    'What is your return policy?',
-    'How long does shipping take?',
+    'What are the current member deals?',
+    'Show me the Hunger Games collection',
     'Check the status of my order'
 ];
 
 // --- Server access (single drop-in point for a different backend later) ---
 
-async function getAssistantResponse(messages) {
+async function getAssistantResponse(messages, requestId, signal) {
     const response = await fetch('/api/assistant/chat', {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            requestId, cart: loadCartFromStorage(),
             messages: messages.map(function (turn) {
                 // The model only sees text, so remind it which books (and ids)
                 // its earlier replies showed; "add the first one" needs them.
                 let content = turn.content;
                 if (turn.role === 'assistant' && turn.books && turn.books.length) {
                     content += '\n[Books shown: ' + turn.books.map(function (book) {
-                        return '#' + book.id + ' ' + book.title;
+                        return '#' + book.id + ' ' + book.title + ' by ' + book.author + ' $' + (book.salePrice ?? book.price);
                     }).join('; ') + ']';
                 }
-                return { role: turn.role, content: content };
+                return { role: turn.role, content: content.slice(0, 2000) };
             })
         })
     });
@@ -146,7 +148,9 @@ function createAssistantActionButton(action) {
 async function addAssistantBookToCart(bookId, quantity) {
     if (typeof setCartQuantity !== 'function') return 'The cart is not available on this page.';
     const existing = loadCartFromStorage().find(function (item) { return item.bookId === bookId; });
-    const error = await setCartQuantity(bookId, (existing ? existing.quantity : 0) + quantity);
+    let error;
+    try { error = await setCartQuantity(bookId, (existing ? existing.quantity : 0) + quantity); }
+    catch (failure) { return failure.message; }
     if (!error) {
         const cartCount = document.getElementById('cartCount');
         if (cartCount) cartCount.textContent = getCartItemCount(loadCartFromStorage());
@@ -157,18 +161,13 @@ async function addAssistantBookToCart(bookId, quantity) {
 
 // Runs each addToCart action once, then records the result on the turn so a
 // page reload (which re-renders the saved transcript) never adds the book again.
-async function performAssistantActions(turn) {
-    for (const action of turn.actions || []) {
-        if (action.type !== 'addToCart' || action.done) continue;
-        action.done = true;
-        const error = await addAssistantBookToCart(action.bookId, action.quantity || 1);
-        action.result = error
-            ? 'Could not add to cart: ' + error
-            : 'Added ' + (action.quantity || 1) + ' × ' + action.title + ' to your cart.';
-        if (!error && !(turn.actions || []).some(function (other) { return other.type === 'navigate'; })) {
-            turn.actions.push({ type: 'navigate', url: 'cart.html', label: 'Cart' });
-        }
-    }
+async function performAssistantActions(turn, requestId) {
+    const additions = (turn.actions || []).filter(a => a.type === 'addToCart');
+    if (!additions.length) return;
+    const results = await applyAssistantCartActions(additions, requestId);
+    turn.content = results.join(' ') + (turn.notes?.length ? ' ' + turn.notes.join(' ') : '');
+    turn.actions = (turn.actions || []).filter(a => a.type !== 'addToCart');
+    turn.actions.push({ type: 'navigate', url: 'cart.html', label: 'Cart' });
 }
 
 // --- Chat panel ---
@@ -203,11 +202,12 @@ function buildAssistantPanel(container, inline) {
         <form class="assistant-form" id="assistantForm" autocomplete="off">
             <label class="visually-hidden" for="assistantInput">Ask the assistant</label>
             <input type="text" class="form-control" id="assistantInput" maxlength="1000"
-                placeholder="Ask about books, orders, or shipping…">
+                placeholder="Ask about books, deals, or your account…">
             <button type="submit" class="btn btn-primary" id="assistantSend" aria-label="Send">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/></svg>
             </button>
         </form>
+        <div class="d-flex gap-2 px-3"><button type="button" class="btn btn-sm btn-outline-secondary assistant-cancel" id="assistantCancel" hidden>Cancel</button><button type="button" class="btn btn-sm btn-outline-primary" id="assistantRetry" hidden>Retry</button></div>
         <p class="assistant-status" id="assistantStatus" role="status"></p>
     `;
 
@@ -229,11 +229,17 @@ function buildAssistantPanel(container, inline) {
         sendAssistantMessage(assistantState.input.value);
     });
     container.querySelector('#assistantClear').addEventListener('click', function () {
+        if (assistantState.busy) return;
+        sessionStorage.removeItem('assistantPending');
+        container.querySelector('#assistantRetry').hidden = true;
         assistantState.history = saveAssistantHistory([]);
         renderAssistantTranscript();
         assistantState.input.focus();
     });
 
+    container.querySelector('#assistantCancel').onclick = () => assistantState.controller?.abort();
+    container.querySelector('#assistantRetry').onclick = () => sendAssistantMessage('', true);
+    container.querySelector('#assistantRetry').hidden = !sessionStorage.getItem('assistantPending');
     renderAssistantSuggestions();
     renderAssistantTranscript();
     showAssistantModeBadge();
@@ -257,10 +263,10 @@ async function showAssistantModeBadge() {
     if (!assistantState) return;
     const badge = assistantState.mode;
     if (status && status.modelAvailable) {
-        badge.textContent = 'Local AI • ' + status.model;
+        badge.textContent = 'MIS AI • ' + status.model;
         badge.title = status.detail;
     } else {
-        badge.textContent = 'Quick answers mode';
+        badge.textContent = 'MIS assistant unavailable';
         badge.title = status ? status.detail : 'The assistant service could not be reached.';
     }
 }
@@ -299,12 +305,7 @@ function createAssistantTurn(turn) {
             links.forEach(function (action) { bar.appendChild(createAssistantActionButton(action)); });
             row.appendChild(bar);
         }
-        if (turn.mode === 'fallback') {
-            const badge = document.createElement('div');
-            badge.className = 'assistant-meta';
-            badge.textContent = 'Quick answer';
-            row.appendChild(badge);
-        }
+
     }
     return row;
 }
@@ -316,7 +317,7 @@ function renderAssistantTranscript() {
     if (state.history.length === 0) {
         const welcome = createAssistantTurn({
             role: 'assistant',
-            content: 'Hi! I can recommend books, add them to your cart, check an order, or explain shipping and returns. What can I help with?'
+            content: 'Hi! I can find catalog books and collections, add requested books to your cart, explain member deals, or read your signed-in order history. What would you like to explore?'
         });
         state.messages.appendChild(welcome);
     }
@@ -334,46 +335,36 @@ function showAssistantTyping() {
     return row;
 }
 
-async function sendAssistantMessage(text) {
+async function sendAssistantMessage(text, retry = false) {
     const state = assistantState;
+    if (state.busy) return;
+    let pending = retry ? JSON.parse(sessionStorage.getItem('assistantPending') || 'null') : null;
     text = (text || '').trim();
-    if (!text || state.busy) return;
-
-    state.busy = true;
-    state.send.disabled = true;
-    state.input.value = '';
-    state.status.textContent = '';
-
-    state.history.push({ role: 'user', content: text });
-    state.history = saveAssistantHistory(state.history);
-    renderAssistantTranscript();
-    const typing = showAssistantTyping();
-
+    if (!pending && !text) return;
+    state.busy = true; state.send.disabled = true; state.input.value = ''; state.status.textContent = 'Connecting to MIS…';
+    state.controller = new AbortController();
+    const cancel = state.panel.querySelector('#assistantCancel'), retryButton = state.panel.querySelector('#assistantRetry');
+    cancel.hidden = false; retryButton.hidden = true;
+    if (!pending) {
+        state.history.push({ role: 'user', content: text });
+        state.history = saveAssistantHistory(state.history);
+        pending = { id: crypto.randomUUID(), history: state.history };
+        sessionStorage.setItem('assistantPending', JSON.stringify(pending));
+    }
+    renderAssistantTranscript(); const typing = showAssistantTyping();
     try {
-        const result = await getAssistantResponse(state.history);
-        const turn = {
-            role: 'assistant',
-            content: result.reply,
-            mode: result.mode,
-            books: result.books || [],
-            actions: result.actions || []
-        };
-        await performAssistantActions(turn);
-        state.history.push(turn);
-        state.history = saveAssistantHistory(state.history);
+        const result = await getAssistantResponse(pending.history, pending.id, state.controller.signal);
+        if (state.controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+        const turn = { role: 'assistant', content: result.reply, mode: result.mode, books: result.books || [], actions: result.actions || [], notes: result.notes || [] };
+        await performAssistantActions(turn, pending.id);
+        state.history.push(turn); state.history = saveAssistantHistory(state.history);
+        sessionStorage.removeItem('assistantPending'); state.status.textContent = '';
     } catch (error) {
-        state.history.push({
-            role: 'assistant',
-            content: 'Sorry, I could not answer that right now. ' + error.message +
-                ' You can also email help@team7books.example.'
-        });
-        state.history = saveAssistantHistory(state.history);
+        state.status.textContent = error.name === 'AbortError' ? 'Request cancelled. You can retry when ready.' : error.message;
+        retryButton.hidden = false;
     } finally {
-        typing.remove();
-        state.busy = false;
-        state.send.disabled = false;
-        renderAssistantTranscript();
-        state.input.focus();
+        typing.remove(); state.busy = false; state.send.disabled = false; cancel.hidden = true;
+        renderAssistantTranscript(); state.input.focus();
     }
 }
 
@@ -417,7 +408,7 @@ function mountAssistantWidget() {
         launcher.focus();
     });
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !panel.hidden) setOpen(false);
+        if (event.key === 'Escape' && !panel.hidden) { setOpen(false); launcher.focus(); }
     });
 
     let reopen = false;
@@ -469,3 +460,5 @@ async function renderAssistantFaq(container) {
     }
     mountAssistantWidget();
 })();
+
+window.addEventListener('pagehide', () => assistantState?.controller?.abort());

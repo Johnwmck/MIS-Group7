@@ -19,4 +19,9 @@ public class BookstoreState
     // Not required, so files saved before customer accounts existed still load.
     public List<Customer> Customers { get; set; } = new();
     public int NextCustomerId { get; set; } = 1;
+    public List<Promotion> Promotions { get; set; } = new();
+    public int NextPromotionId { get; set; } = 1;
+    public List<RewardEntry> Rewards { get; set; } = new();
+    public List<StaffAccount> Staff { get; set; } = new();
+    public int NextStaffId { get; set; } = 1;
 }

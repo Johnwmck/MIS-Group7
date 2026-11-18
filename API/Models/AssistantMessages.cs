@@ -14,6 +14,8 @@ public class AssistantMessage
 
 public class AssistantChatRequest
 {
+    public Guid RequestId { get; set; }
+    public List<CartSelection> Cart { get; set; } = new();
     public List<AssistantMessage> Messages { get; set; } = new();
 }
 
@@ -29,7 +31,11 @@ public record AssistantBookCard(
     decimal Price,
     decimal? SalePrice,
     string Availability,
-    string Image);
+    string Image,
+    decimal? MemberPrice = null,
+    bool MemberEligible = false,
+    bool MemberOfferApplied = false,
+    decimal? SeriesOrder = null);
 
 // Something the browser must do after reading the reply. The cart and the
 // current page live in the browser, so the server can only ask for these.
@@ -46,10 +52,12 @@ public class AssistantAction
 public class AssistantReply
 {
     public string Reply { get; set; } = string.Empty;
-    // "ollama" when a local model answered, "fallback" for the built-in bot.
-    public string Mode { get; set; } = "fallback";
+    // MIS provider response; failures are explicit HTTP errors.
+    public string Mode { get; set; } = "mis";
+    public Guid RequestId { get; set; }
     public List<AssistantBookCard> Books { get; set; } = new();
     public List<AssistantAction> Actions { get; set; } = new();
+    public List<string> Notes { get; set; } = new();
 }
 
 public record AssistantStatus(bool ModelAvailable, string Model, string Detail);
@@ -57,42 +65,26 @@ public record AssistantStatus(bool ModelAvailable, string Model, string Detail);
 // One help-page FAQ entry, served from the same text the assistant answers with.
 public record FaqEntry(string Id, string Question, string Answer);
 
-// --- Ollama /api/chat wire format ---
-// Only the fields this project uses; everything else is ignored on read.
-
-public class OllamaMessage
+// OpenAI-compatible wire messages; streamed arguments are kept as JSON strings.
+public class ModelMessage
 {
-    [JsonPropertyName("role")] public string Role { get; set; } = string.Empty;
-    [JsonPropertyName("content")] public string Content { get; set; } = string.Empty;
-    [JsonPropertyName("tool_calls")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public List<OllamaToolCall>? ToolCalls { get; set; }
+    [JsonPropertyName("role")] public string Role { get; set; } = "";
+    [JsonPropertyName("content")] public string Content { get; set; } = "";
+    [JsonPropertyName("tool_calls"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ModelToolCall>? ToolCalls { get; set; }
+    [JsonPropertyName("tool_call_id"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ToolCallId { get; set; }
+}
+public class ModelToolCall
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("type")] public string Type { get; set; } = "function";
+    [JsonPropertyName("function")] public ModelFunctionCall Function { get; set; } = new();
+}
+public class ModelFunctionCall
+{
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("arguments")] public string Arguments { get; set; } = "{}";
 }
 
-public class OllamaToolCall
-{
-    [JsonPropertyName("function")] public OllamaFunctionCall Function { get; set; } = new();
-}
-
-public class OllamaFunctionCall
-{
-    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
-    // Ollama sends parsed JSON here; a few models send a JSON string instead.
-    [JsonPropertyName("arguments")] public System.Text.Json.JsonElement Arguments { get; set; }
-}
-
-public class OllamaChatRequest
-{
-    [JsonPropertyName("model")] public string Model { get; set; } = string.Empty;
-    [JsonPropertyName("messages")] public List<OllamaMessage> Messages { get; set; } = new();
-    [JsonPropertyName("tools")] public List<object> Tools { get; set; } = new();
-    [JsonPropertyName("stream")] public bool Stream { get; set; } = false;
-    [JsonPropertyName("keep_alive")] public string KeepAlive { get; set; } = "5m";
-    [JsonPropertyName("options")] public Dictionary<string, object> Options { get; set; } = new();
-}
-
-public class OllamaChatResponse
-{
-    [JsonPropertyName("message")] public OllamaMessage Message { get; set; } = new();
-    [JsonPropertyName("done")] public bool Done { get; set; }
-}
+public record CartSelection(int BookId, int Quantity);

@@ -19,5 +19,8 @@ async function resetDemoState() {
     resetBrowserDemoData();
     // Confirmed server reset removed any possibly completed orders.
     sessionStorage.removeItem('purchaseUncertain');
+    sessionStorage.removeItem('pendingPurchase');
+    sessionStorage.removeItem('assistantHistory');
+    localStorage.removeItem('savedFavorites');
 }
 

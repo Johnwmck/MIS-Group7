@@ -1,300 +1,227 @@
 # Team 7 Books
 
-MIS 321 Team 7 bookstore project for browsing books, placing demo orders, and
-managing the catalog and inventory.
+MIS 321 Team 7 bookstore: a same-origin ASP.NET Core API and browser client, with
+JSON persistence, customer membership, staff tools, and a university MIS assistant.
+This is a class prototype: no real payment, shipment, tracking, or email delivery occurs.
 
-## Run locally
+## Start locally
 
-1. Install the .NET 10 SDK.
-2. Open a terminal in this repository's root folder and run:
+Install the **.NET 10 SDK**, then run from the repository root:
 
-   ```sh
-   dotnet run --project API/Team7Books.Api.csproj --launch-profile http
-   ```
+```sh
+dotnet run --project API/Team7Books.Api.csproj --launch-profile http
+```
 
-3. Open http://localhost:5187 in your browser.
+Open **http://localhost:5187**. No separate frontend server, Node installation, or
+database is needed. Keep the terminal open; Ctrl+C stops the server. Bootstrap,
+fonts, and external cover images use internet access. Covers have local fallbacks.
 
-Keep the terminal running while using the site. Press Ctrl+C to stop the server.
-You do not need a separate frontend server or matching folder paths across
-teammates' computers. Open the browser link rather than opening HTML files directly.
-Bootstrap and book cover images require internet access.
+On an interactive Development launch, if no MIS key is configured, startup pauses
+and asks for an authorized university key **without echoing it**. Enter cancels
+startup when the input is empty; Ctrl+C cancels too. The key becomes an environment
+variable for that API process. The terminal then offers to save it for future
+launches in `API/.env`; the default is **No**, which keeps it process-only.
+Saving preserves other settings, uses atomic file replacement, and sets owner-only
+read/write permissions on macOS/Linux. On Windows the file inherits directory
+permissions. `.env` is plaintext local configuration, not encrypted storage.
+Never paste a key into chat or commit it.
 
-## Pages
+If an environment or `.env` key already exists, there is no prompt. Redirected,
+non-interactive, and non-Development launches never wait for terminal input. They
+start the store and explain missing assistant configuration in the terminal and UI.
 
-- **Customer home:** Best Sellers and the four largest genres each show a carousel
-  of up to 12 books, six per slide. Searching from here opens the catalog.
-- **Catalog:** http://localhost:5187/catalog.html lists every active book, 48 per
-  page (eight rows of six), with search, genre filter, and sort. The view is kept
-  in the address (`?search=`, `?genre=`, `?sort=`, `?page=`).
-  Add to Cart and Buy Now validate quantities against current API inventory.
-- **Book page:** Selecting a book opens `book.html?id=<book id>` with a cover and
-  summary carousel beside the price, quantity, Add to Cart, favorite, and Buy Now.
-  Similar books (the rest of the series, then the author, then the genre) follow.
-- **Cart and checkout:** Review current API titles, prices, and availability,
-  then place an order through the server. Every order needs a card: guests type
-  one, and logged-in customers pick a saved card or type a new one (and can save
-  it to their account). See [Customer accounts](#customer-accounts).
-- **Favorites:** For logged-in customers only. Select the heart on any book to
-  save it, then open the heart link beside Cart to add saved books to the cart or
-  remove them. Favorites are saved to the customer's account, so they follow the
-  account to any browser. Guests see no hearts or Favorites link, and
-  favorites.html sends them to log in.
-- **Login:** http://localhost:5187/login.html is the one login page. Customers log
-  in with their email; staff log in with their username to reach the employee or
-  admin pages. A customer who is already logged in is sent to their account page.
-- **My Account:** http://localhost:5187/account.html opens from the customer's name
-  in the navbar. Like the staff portals, a section bar switches between Order
-  History (with returns and cancellations), Payment Methods, and Account Info. See
-  [Customer accounts](#customer-accounts).
-- **Create an account:** http://localhost:5187/signup.html collects first name,
-  last name, email, password, and an optional phone number. See
-  [Customer accounts](#customer-accounts).
-- **Employee:** Manage inventory and availability; view server orders and export CSV.
-- **Admin:** Add, edit, and delete books; manage inventory and view reports. Order
-  History has All / Returns / Orders buttons beside Export CSV: Returns shows
-  returned and cancelled orders, Orders shows the rest, and the export follows
-  the buttons and the search box.
-- The Employee and Admin navbars have no Favorites or Cart links.
-- **Help:** http://localhost:5187/help.html has the full-page assistant and the FAQ list.
-  The same assistant is the "Ask us" button in the corner of every customer page.
+Alternatively, copy `API/.env.example` to `API/.env` and edit it locally before
+starting. The example contains placeholders only. The API resolves this directory
+explicitly, so launching from the repository root works. Real environment variables
+override `.env`; hosting does not require a file. The API and provider transport
+never send the credential to the browser or include provider response bodies in errors.
 
-## AI assistant
+| Setting | Default / purpose |
+| --- | --- |
+| `MIS_LLM_KEY` | Authorized university API key; canonical spelling |
+| `MIS_LLM_KeY` | Handout alias, also accepted; canonical spelling wins if both environment spellings exist |
+| `MIS_LLM_ENDPOINT` | `https://local-llm.uamishub.com/v1` |
+| `MIS_LLM_MODEL` | `qwen3.8-27b` |
+| `MIS_LLM_TIMEOUT_SECONDS` | 150 seconds for a whole assistant turn; bounded 5–300 |
+| `MIS_LLM_MAX_TOKENS` | 1800 per provider round; bounded 128–4096 |
 
-The assistant answers store questions (shipping, returns, exchanges, tax, how to
-order), searches the catalog and recommends books, adds books to your cart, looks
-up an order when you give the order number and the checkout email, and offers
-buttons to open pages. It cannot cancel, change, or refund orders.
+A newly issued MIS key can be **pending or lack model access**. A 403/404 response
+asks you to confirm access to `qwen3.8-27b` with the university; regenerating the key
+is not the recommended fix. Missing keys, unauthorized credentials, model access,
+service failures, rate limits, cancellation, and timeouts are distinguished.
+“Configured” means a key exists; a successful chat is the live access check.
+There is no silent scripted fallback and no local model startup requirement.
 
-It runs in one of two modes, chosen automatically on every message:
+## Customer experience
 
-- **Local AI** — the server sends the conversation to a model running in
-  [Ollama](https://ollama.com) on the same computer. Nothing leaves your machine
-  and there is no API key or cost. To enable it:
+- Home and catalog share compact, full-cover tiles, visible sale/member badges,
+  favorites, stock indicators, and quick Add to Cart. The catalog retains search,
+  filters, sorting, URL state, and 48-book pages. Details show related series in
+  decimal reading order before other recommendations.
+- Guest favorites are saved in the browser. Signing in merges them with the
+  server account in one transaction, without duplicates. Guest entries are
+  cleared only after success; a failed merge preserves them for retry.
+- Registration, sign-in/out, account edits, saved card summaries, own order history,
+  and rewards use server accounts. Passwords use ASP.NET Core `PasswordHasher`.
+  An HttpOnly, SameSite=Strict cookie is revalidated against the saved account on
+  every request. Browser storage and supplied customer IDs cannot authorize access.
+- Carts remain in the browser across sign-in/out. Signed-in orders attach to the
+  authenticated account; guests can still check out. Registering with an old guest
+  order's email does not claim that order.
+- Checkout obtains current server prices and a rewards quote. It rejects changed
+  prices, changed account identity, unavailable books, and insufficient inventory.
+  A saved request key makes **Retry confirmation** safe after a lost response.
+  Do not discard an unconfirmed checkout: use its retry button to recover it.
+- Card entry is for demo cards only. The browser sends only brand, last four digits,
+  expiration, and name. Full card numbers are neither sent to the API nor persisted.
+- Existing whole-order returns/cancellations remain available for signed-in purchases
+  within 30 days. These are prototype receipts, not actual money transfers. Inventory
+  and rewards reverse atomically. There is no guest-return or exchange workflow.
 
-  1. Install Ollama (macOS: `brew install ollama`, or the download on ollama.com).
-  2. Pull the model once (about 4.7 GB): `ollama pull qwen2.5:7b`
-  3. Make sure Ollama is running (`ollama serve`, or the menu-bar app) before
-     starting the site. Replies take a few seconds each on a laptop.
+## Promotions and rewards
 
-  The model, server URL, and timeout are in the `Assistant` section of
-  `API/appsettings.json`. `llama3.2:3b` is a smaller, faster choice that is less
-  reliable at using the catalog tools.
+**Admin → Promotions & Rewards** creates and edits names, eligible books, percent
+discounts, start/end timestamps, public/member eligibility, and active state.
+Dates entered by the form use the browser's local time and are stored in UTC.
+Start is inclusive, end exclusive. Activate/deactivate does not override dates.
+Edits use revision tokens to reject stale changes.
 
-- **Quick answers** — if Ollama is not running or the model is not pulled, the
-  server falls back to a built-in keyword bot that handles the same FAQs, book
-  search, add-to-cart, order lookup, and page links. The chat header shows which
-  mode is active, so the demo works on any machine without extra setup.
+For each book, the **best eligible public or member percentage offer** applies;
+percentage discounts never stack. Unit prices round to cents, midpoint away from
+zero. Guests see the current public price plus a lower member-price teaser when
+available. Signed-in members see the price they will pay. Prices, banners, cart,
+checkout, assistant tools, and receipts use the same server rules.
 
-Policy text the assistant uses is placeholder demo content in
-`API/Services/AssistantKnowledge.cs`; the FAQ accordion on help.html reads the
-same list. Conversations are kept in the browser tab only (`sessionStorage`).
+- Earn **1 point per whole dollar** of merchandise after promotions and redemption,
+  excluding tax. Points are available only after the order is successfully saved.
+- Redeem **100 points for $5**, in whole 100-point increments. Redemption cannot
+  exceed the existing balance or cover more than the merchandise subtotal.
+  For example, $4.99 of merchandise cannot use a $5 reward block.
+- Subtract rewards from discounted merchandise, then calculate **10% sales tax**,
+  rounded once on that subtotal. Current-purchase earnings cannot fund its redemption.
+- Each order has unique award/redemption ledger entries. A prototype refund reverses
+  its earnings and restores its redemption once. If those earnings were already
+  spent, the balance can go negative; future earnings offset it and redemption is
+  unavailable until sufficient points return.
+- Account pages show balance/history; confirmations, internal records, and CSVs show
+  savings and points. Revenue reports use saved totals after all discounts and refunds.
 
-## Demo accounts
+The one-time migration retains the previous **Merry & Bright** offer as editable
+JSON data (20%, selected books, November 10–December 25, 2026 UTC). It adds an editable
+**Member bookshelf** offer (15%, books present during migration, November 1–December
+31, 2026 UTC). New books must be added to an offer explicitly. Staff can adjust these
+demo offers before December 3; no expired Halloween mechanism remains in code.
+
+## Assistant architecture
+
+The browser posts conversation text and current cart context to `/api/assistant/chat`.
+`MisModelClient` sends OpenAI-compatible streaming .NET HTTP requests with
+`chat_template_kwargs.enable_thinking=false`. It assembles SSE text and indexed tool
+argument fragments, verifies completion, and rejects truncated/invalid streams.
+Only complete replies reach the browser; the UI offers loading, Cancel, and Retry.
+This avoids exposing incomplete arguments and the provider's long non-streamed
+request timeout. The transport uses framework HTTP/JSON facilities without an SDK
+package dependency.
+
+The service limits history, response sizes, and tool rounds. Tools can search current
+catalog prices/availability, exclude authors, fetch book/series details, read current
+store policies/deals/rewards, read the signed-in customer's own order, prepare cart
+additions, and offer local navigation. They cannot order, redeem, refund, or administer
+the store. Identity always comes from the server cookie. An email/model-supplied ID
+is never proof of ownership.
+
+The browser confirms cart actions using shared cart validation. Cart selections and
+assistant action receipts are saved in one storage write, preventing duplicate adds
+on retries/restoration. Repeated tool calls for the same book are deduplicated.
+Cart count, preview, and the visible cart refresh after changes. Conversation context
+is tab-scoped across customer pages and cleared on identity changes.
+
+For Hunger Games, the series tool lists the catalog's four entries in reading order,
+including unavailable entries. It prepares available requested entries, explains
+skips, and asks whether to add extra copies when books are already in the cart. It
+does not promise titles absent from this catalog. Help FAQs and assistant policy
+facts share `API/Services/AssistantKnowledge.cs`.
+
+## Staff and authorization
+
+Development seed accounts:
 
 | Role | Username | Password |
 | --- | --- | --- |
-| Admin | `admin` | `admin123` |
+| Administrator | `admin` | `admin123` |
 | Employee | `employee` | `employee123` |
 
-These are fake accounts for the local prototype.
+These are local demo credentials. Staff passwords are hashed in JSON. Employees
+can adjust inventory/availability and read order reports; only administrators can
+create/delete books, change catalog details, manage employees/promotions, inspect
+all rewards, and reset demo data. APIs enforce these roles independently of the UI.
+Employee edits cannot change posted price/title fields. Disabled employees and
+changed credentials invalidate their sessions.
 
-## Customer accounts
+First startup/migration outside Development requires `BOOKSTORE_ADMIN_PASSWORD`
+and `BOOKSTORE_EMPLOYEE_PASSWORD`; these can also be set before a first local launch
+to replace the demo seed passwords. Existing staff are not overwritten on restart.
+Old browser-only staff records are ignored; recreate needed employees through Admin.
+For a later hosted instance, use HTTPS, persistent application/Data Protection storage,
+server environment variables, and non-demo staff credentials. Deployment is outside
+this local implementation.
 
-Customers create their own accounts on signup.html; there are no seeded customer
-accounts. Accounts are saved by the API in `API/App_Data/bookstore-state.json`
-alongside books and orders, as a `customers` list (id, first and last name,
-lowercase email, optional phone, password hash, created date). Passwords are
-never stored in plain text: the API hashes them with ASP.NET Core's
-`PasswordHasher` (PBKDF2), and responses never include the hash.
+## JSON state, migration, and reset
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /api/customers/register` | Create an account and log in |
-| `POST /api/customers/login` | Log in with email and password |
-| `POST /api/customers/logout` | Log out |
-| `GET /api/customers/me` | The logged-in customer, or 204 when nobody is logged in |
-| `PUT /api/customers/me` | Update name, email, and phone |
-| `POST /api/customers/me/password` | Change the password (needs the current one) |
-| `GET /api/customers/me/orders` | The customer's orders, newest first |
-| `POST /api/customers/me/orders/{id}/refund` | Return or cancel an order within 30 days |
-| `GET /api/customers/me/payment-methods` | Saved cards, default first |
-| `POST /api/customers/me/payment-methods` | Save a card |
-| `POST /api/customers/me/payment-methods/{id}/default` | Make a card the default |
-| `DELETE /api/customers/me/payment-methods/{id}` | Remove a card |
-| `GET /api/customers/me/favorites` | Favorite book IDs, in saved order |
-| `PUT /api/customers/me/favorites/{bookId}` | Add a favorite |
-| `DELETE /api/customers/me/favorites/{bookId}` | Remove a favorite |
+Runtime state remains **`API/App_Data/bookstore-state.json`**, Git-ignored and excluded
+from publish output. `Bookstore__StatePath` and `Bookstore__SeedPath` select alternate
+files. Only one API process can own a state file; a process lock prevents sharing.
+CSV remains bootstrap data and is never rewritten by purchases.
 
-Login uses an HttpOnly, same-site cookie that lasts 7 days, so customers stay
-logged in across visits. Each email can hold one account (letter case is
-ignored). Names are required (up to 50 characters), passwords need 8 to 128
-characters, and a phone number, if given, needs 10 to 15 digits. Saved state from
-before customer accounts loads unchanged. Staff accounts are still the
-browser-only demo accounts above. The `/me` endpoints act only on the logged-in
-account and answer 401 when nobody is logged in.
+Version 1 loads conservatively and migrates once to version 2, adding promotions,
+staff, rewards, and session identifiers. Exact ISBN strings, decimal series sequences,
+inventory, custom descriptions/biographies, customers/favorites, and historical order
+snapshots are retained. The existing conservative catalog-metadata migration remains.
+Only the former derived `salePrice` cache is removed; original list prices and amounts
+paid are retained. Historical orders receive no retroactive points.
 
-**Order history.** Orders placed while logged in are linked to the account
-(`customerId` on the order), so they appear on account.html; guest orders and
-orders placed before this feature do not. Within 30 days of the order date the
-customer can choose Return Order or Cancel Order. Either one opens a form that
-requires a reason from a list (comments are optional, or required for "Other",
-up to 500 characters). The whole order is refunded, its books go back into
-inventory, and a refund receipt (numbered R-&lt;order id&gt;) is added to the
-order and shown at the top of the history. The original sale is never deleted.
-Employee and Admin order history show the status, receipt, and reason; the CSV
-export adds status, refund, and payment columns; Admin sales totals and best
-sellers leave out refunded orders, and a Refunds Issued card shows the total.
+Every mutation builds a detached snapshot. Order insertion, inventory deduction,
+optional saved card, reward redemption, and earning are validated and written together,
+using a flushed temporary file and atomic replacement before publishing live state.
+Failed writes do not apply partial changes. Malformed/incomplete snapshots stop startup
+without reset. Back up the state file before recovery; never delete it merely to start.
 
-**Payment methods.** Customers can save up to 10 Visa, Mastercard, American
-Express, or Discover cards, choose a default, and remove cards. The browser
-checks the number (card type, length, and Luhn checksum) and sends only the card
-type, last four digits, expiration, and name on card; the full number is never
-sent or saved. Checkout requires a card: guests and customers without saved
-cards type one on the checkout page; customers with saved cards get their default
-card preselected, or choose "Use a new card". A logged-in customer's typed card
-is saved to their account with the order unless they uncheck "Save this card".
-The order saves the text "Visa ending in 4242" so later card changes cannot
-rewrite receipts. Nothing is charged. Card entry checks live in
-`payment-cards.js`, shared by checkout and the account page.
+**Admin Reset Demo Data is destructive:** restores the seed catalog and default offers,
+deletes customers/favorites/orders/rewards, and resets their counters. Server staff
+accounts remain, including the authorized administrator session. The initiating
+browser's demo cart, checkout, favorites, and chat are cleared; other tabs should
+refresh. Old customer cookies cannot regain a later account that reused an ID.
 
-**Favorites.** Favorites are saved on the customer's account (up to 500 books)
-instead of in the browser, so only logged-in customers have them and each
-account sees only its own. Favorites saved in a browser before this change are
-moved into the first account that logs in there.
+See [checkout contract](API/ORDER-CONTRACT.md) and [local handoff](HANDOFF.md).
 
-## Current demo behavior
+## Verification
 
-Customer, Admin, and Employee share the local API catalog. First startup loads the
-573 books in `Seed Data/Team7_SeedBooks.csv`. Later startups load saved state, so inventory,
-catalog edits/deletions, new books, and orders survive restarts. Refresh a page to
-see changes made on another page. Each machine has its own independent state.
-
-The normal customer page loads `/api/books`; no preview URL is needed. Customer
-Best Sellers, internal order history, CSV exports, and Admin sales statistics use
-server orders. Cart selections and checkout snapshots remain in browser storage, but book details
-and validation come from the API. Cart reconciliation removes unavailable books
-and reduces quantities when inventory falls. API failures preserve saved selections.
-Purchases validate the entire order before reducing server inventory and saving
-an order. New purchases add 10% sales tax, rounded to cents; cart, checkout,
-confirmation, history, and CSV display the subtotal, tax, and total. Admin reports
-separate before-tax revenue from tax collected. Existing pre-tax orders retain
-their original totals and show zero tax. Changed prices require a fresh review. Failed requests preserve selections;
-an unconfirmed purchase result blocks resubmission until you check history and
-deliberately start another checkout. Buy Now leaves the saved cart separate.
-Admin's **Reset Demo Data** restores the CSV catalog, deletes completed orders
-and customer accounts, resets ID counters, and saves that demo state. It also clears the initiating
-browser's cart, checkout selection, and demo accounts while preserving its Admin
-session. Other browsers/tabs should refresh and review their selections after reset.
-
-## Local persistence
-
-Catalog updates include the revision shown when the form/control was loaded.
-Purchases and edits replace that token; stale updates return HTTP 409 and require
-refresh/reopening the form. Reset generates fresh tokens too. Existing saved
-books without tokens receive them automatically on load. Successful cart checkout
-subtracts only confirmed purchased quantities from the current shared cart, keeping
-items and extra copies added by other tabs while the request was in flight.
-
-The seed CSV is version-controlled and copied into the API build/publish output.
-It is never rewritten by purchases or catalog operations. Saved state lives at
-`API/App_Data/bookstore-state.json` during normal local runs and is Git-ignored.
-Books, orders, counters, and a format version are saved together using a flushed
-temporary file and atomic replacement. A failed save does not change live state.
-Local App_Data files are also excluded from build/publish copying, so personal
-snapshots are not shipped or copied over runtime data. Seed CSV and description
-baseline metadata are copied to output; the baseline updates the Web SDK's
-existing JSON content item rather than including it a second time.
-
-A saved-state file takes precedence over changed seed data. One conservative
-metadata migration now applies reviewed duplicate-author aliases and descriptions
-that exactly match the pre-enrichment seed fingerprints. Missing biography fields
-in older JSON are filled from the enriched seed. Inventory, orders, IDs, revisions,
-custom descriptions, and explicitly saved biographies (including empty ones)
-are preserved. Restart the API to apply this migration; no reset is needed.
-For other seed changes, use Reset Demo Data only if deliberately discarding demo
-changes/orders. Invalid or unreadable saved data stops startup
-instead of silently wiping changes. Back up that file before recovery. Only one
-API process may own a given state file; a process lock prevents accidental sharing.
-For isolated tests, configuration overrides `Bookstore:StatePath` and
-`Bookstore:SeedPath` select different files (environment variables use
-`Bookstore__StatePath` and `Bookstore__SeedPath`).
-
-Catalog requests accept checksum-valid ISBN-10/ISBN-13 values; hyphens and
-spaces are removed when saving API edits. Prices must be nonnegative amounts
-with at most two decimal places (including reviewed checkout prices). Seed
-import and saved-state loading share these catalog validation rules.
-Saved orders must have valid items/customer/date data, consistent subtotal,
-10% tax and total calculations, and non-reusable ID counters. Untaxed historical
-orders remain valid only when their original totals match their item snapshots.
-Malformed snapshots are rejected without modifying the saved file.
-
-Series names and nullable decimal reading sequences are preserved by catalog
-operations, editable in Admin, and used to order a book's series under Similar
-Books. Browser demo accounts remain browser-only. The reset endpoint has no server authentication:
-this is still a local prototype, not a production-ready deployment.
-
-## Backend checkout design
-
-Request and saved-order models are defined in `API/Models`.
-See [the checkout contract](API/ORDER-CONTRACT.md) for validation, price-change,
-transaction, and response rules. Phase 7 removed browser catalog seeds, catalog
-and order persistence, and browser purchasing. Old `savedBooks` and `savedOrders`
-storage entries are ignored and left untouched; no browser data is imported into
-server orders. A confirmed server demo reset can clear the unconfirmed-purchase
-safeguard because all prior demo orders have been deleted.
-Phase 8 separates shared code by responsibility. Pages load only their needed
-scripts, in dependency order, before their page controller:
-
-| File | Responsibility |
-| --- | --- |
-| `api.js` | Same-origin book and order requests |
-| `book-utils.js` | Currency and stock-display rules |
-| `cart-state.js` | Cart selections and API reconciliation |
-| `book-cards.js` | Customer book cards and Add to Cart, shared by the home and catalog pages |
-| `favorites-state.js` | The logged-in customer's favorites (API), navbar link and count, and heart buttons |
-| `payment-cards.js` | Card entry checks (type, length, checksum, expiration) and saved-card display |
-| `cart-preview.js` | Navbar hover preview of cart items and totals, with one-copy removal and Checkout |
-| `checkout-state.js` | Checkout snapshots and customer validation |
-| `internal-users.js` | Prototype accounts and login sessions |
-| `customer-accounts.js` | Customer sign-up, login, logout, account info, orders, returns, and saved cards (API) |
-| `account.js` | The customer account page: order history and the return/cancel form, payment methods, account info |
-| `demo-reset.js` | Server demo reset and initiating-browser cleanup |
-| `section-nav.js` | Admin, Employee, and account-page section bar; the URL hash keeps the open section |
-| `reporting.js` | Sales rankings, dashboard, recommendations, history rendering/search |
-| `order-export.js` | Order CSV formatting and download |
-
-`home.js` runs the home page and `customer.js` runs the catalog page.
-`order-history.js` owns history loading, search/export events, and displayed-order
-state. Report renderers take explicit data and DOM targets; they do not initialize
-themselves or own page globals. Order CSV behavior is unchanged; catalog CSV
-import/export is separate future work. No bundler or ES module conversion is needed.
-
-## Review checks
-
-Navigation links are visible and wrap on narrow screens. Catalog ordering defaults
-to Title A–Z; both internal inventory tables paginate filtered results in groups
-of 32, with genre filters and title/author/price/inventory sorting applied before
-paging. Shared customer tiles support quick Add to Cart. The cart preview opens
-on hover or keyboard focus and refreshes prices and availability on reopening.
-Public-page navigation shows the signed-in internal account and links to its
-portal, or the logged-in customer's name linking to their account page
-(account.html); everyone else sees Login. Internal portals retain account
-and logout controls. Preview checkout releases its busy state on every exit,
-including redirects; browser Back restoration closes retained preview UI so
-reopening requests fresh API data.
-Unavailable selections require cart review; failures do not clear saved selections.
-
-Build the API:
+From the root:
 
 ```sh
 dotnet build API/Team7Books.Api.csproj
+dotnet run --project tests/Core/Team7Books.Checks.csproj -- "$PWD"
+python3 tests/integration.py
+python3 tests/key_prompt.py
 ```
 
-Review cart and Buy Now purchases, tax breakdowns, order reports, and CSV export.
-Check that catalog changes and orders survive an API restart. Test invalid ISBNs
-and prices, then confirm Reset Demo Data restores seeds and clears orders.
+Tests use temporary state, including a **copy** of existing local data. Integration
+checks start loopback API and deterministic streaming-provider servers; they do not
+reset real data or establish live MIS model access. The terminal test uses a temporary
+project layout, pseudo-terminal, and throwaway key; it verifies hidden input, optional
+save, no repeat prompt, and cancelled startup. It requires macOS/Linux.
 
-Also start checkout from the navbar preview, go Back, and start it again. Check
-failure recovery, changed selections, and keyboard focus inside the preview.
-Use isolated state for automated checks; do not reset saved demo data just to
-make verification pass.
+Optional browser acceptance checks require Python Playwright and locally installed
+Google Chrome (the default executable path in `tests/browser_checks.py` is for macOS):
+
+```sh
+python3 -m venv /tmp/team7-browser-checks
+/tmp/team7-browser-checks/bin/pip install playwright
+/tmp/team7-browser-checks/bin/python tests/integration.py --browser
+```
+
+This exercises registration, guest-favorite merge, chat cart actions/restoration,
+member checkout, a lost purchase response and safe retry, rewards redemption, internal
+records/CSV, and desktop/mobile behavior. Screenshots go to ignored `.test-artifacts/`.
+The final live-provider check requires an authorized key with access to the configured
+MIS model; see the handoff for the remaining acceptance step.

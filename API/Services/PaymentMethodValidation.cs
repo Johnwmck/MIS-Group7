@@ -9,7 +9,7 @@ public static class PaymentMethodValidation
     public const int MaxSavedCards = 10;
     public const int MaxNameLength = 60;
     public const int MaxYearsAhead = 20;
-    public static readonly string[] Brands = { "Visa", "Mastercard", "American Express", "Discover" };
+    public static readonly string[] Brands = { "Demo card", "Visa", "Mastercard", "American Express", "Discover" };
 
     // A card being added must also be unexpired and not absurdly far out.
     public static string GetNewCardError(AddPaymentMethodRequest request, DateTimeOffset now)
@@ -25,7 +25,7 @@ public static class PaymentMethodValidation
     public static string GetCardError(string? brand, string? last4, int? expMonth, int? expYear, string? nameOnCard)
     {
         if (brand is null || !Brands.Contains(brand))
-            return "We accept Visa, Mastercard, American Express, and Discover.";
+            return "Enter a valid demo card type.";
         if (last4 is null || last4.Length != 4 || !last4.All(char.IsAsciiDigit))
             return "Enter a valid card number.";
         if (expMonth is null or < 1 or > 12) return "Enter a valid expiration month.";
